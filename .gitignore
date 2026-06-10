@@ -3,6 +3,11 @@
 # Keep the deployable museum app, generated thumbnails, catalog metadata, docs, and BAT scripts tracked.
 
 .online-museum-server.pid
+node_modules/
+dist/
+.vite/
+qa-*.png
+qa-screenshots/
 *.log
 Thumbs.db
 desktop.ini

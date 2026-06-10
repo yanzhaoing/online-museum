@@ -56,7 +56,7 @@
 放置完成后，重新启动本地服务：
 
 ```powershell
-python -m http.server 8765 --bind 127.0.0.1
+npm run dev
 ```
 
 访问：

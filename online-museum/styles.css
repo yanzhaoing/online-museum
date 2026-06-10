@@ -2392,7 +2392,7 @@ h1 {
   }
 
   .hero-stats span {
-    min-width: 132px;
+    min-width: 0;
   }
 
   .segmented {
@@ -2401,5 +2401,24 @@ h1 {
 
   .pedestal {
     width: clamp(128px, 38vw, 174px);
+  }
+}
+
+@media (max-width: 430px) {
+  .hero-stats {
+    width: 100%;
+    max-width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .hero-stats span {
+    padding: 12px 10px;
+    font-size: 13px;
+  }
+
+  .hero-stats strong {
+    font-size: 27px;
   }
 }
