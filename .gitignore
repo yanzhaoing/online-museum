@@ -1,0 +1,32 @@
+# GitHub cannot host this project's full raw archive safely:
+# the original folders are ~34GB and several PDFs exceed GitHub's 100MB file limit.
+# Keep the deployable museum app, generated thumbnails, catalog metadata, docs, and BAT scripts tracked.
+
+.online-museum-server.pid
+*.log
+Thumbs.db
+desktop.ini
+__pycache__/
+*.pyc
+
+# Original high-resolution archive folders. Place them beside online-museum locally
+# when full "open original file" links are needed.
+/弓文君（已改好）/
+/张维民（已上传数字档案室）/
+/徐星宇（已上传数字档案室）/
+/朱海君(已上传数字档案室）/
+/樊正锋/
+/潘峰/
+/给编委会的/
+/蒋建丰（已上传数字档案室）/
+/藏家孙海滨/
+/虞永良(已改好）/
+/钱海/
+/陆亚成（已改好）/
+/陈剑(已上传数字档案室）/
+/馆内 党史办（字画类）(已上传数字档案室）/
+/馆内 张维中（文献类）(已上传数字档案室）/
+/馆内 朱锦生（文献类）(已上传数字档案室）/
+/馆内 档案馆（字画类）碑拓（已上传数字档案室）/
+/馆内 档案馆（文献类）地契（已上传数字档案室）/
+/高建新（已上传数字档案室）/
