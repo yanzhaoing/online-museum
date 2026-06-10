@@ -1942,22 +1942,28 @@ h1 {
 
 .related-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 10px;
 }
 
 .related-card {
   display: grid;
-  grid-template-columns: 54px 1fr;
-  gap: 9px;
-  align-items: center;
+  grid-template-columns: 64px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  gap: 6px 10px;
+  align-items: start;
   min-width: 0;
-  padding: 8px;
+  min-height: 92px;
+  padding: 10px;
   border: 1px solid var(--line);
   background: color-mix(in srgb, var(--paper) 76%, transparent);
   color: var(--ink);
   cursor: pointer;
   text-align: left;
+}
+
+.related-card strong {
+  max-width: 100%;
 }
 
 .related-card:hover,
@@ -1968,8 +1974,8 @@ h1 {
 .related-card img,
 .related-card .pdf-thumb {
   grid-row: span 2;
-  width: 54px;
-  height: 64px;
+  width: 64px;
+  height: 74px;
   object-fit: cover;
 }
 
@@ -1978,12 +1984,65 @@ h1 {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+}
+
+.related-card strong {
+  display: -webkit-box;
+  align-self: end;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .related-card span {
+  align-self: start;
   color: var(--muted);
   font-size: 12px;
+  white-space: nowrap;
+}
+
+.related-card .pdf-thumb,
+.trail-item .pdf-thumb,
+.compare-card .pdf-thumb {
+  place-items: center;
+  align-content: center;
+  gap: 0;
+  padding: 6px;
+  text-align: center;
+}
+
+.related-card .pdf-thumb::after,
+.trail-item .pdf-thumb::after,
+.compare-card .pdf-thumb::after {
+  content: "PDF";
+  position: relative;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  min-width: 38px;
+  min-height: 26px;
+  padding: 0 6px;
+  border: 1px solid rgba(255, 247, 233, 0.76);
+  border-radius: 999px;
+  background: rgba(20, 19, 16, 0.34);
+  color: #fff7e9;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.related-card .pdf-thumb em,
+.trail-item .pdf-thumb em,
+.compare-card .pdf-thumb em {
+  display: none;
+}
+
+.related-card .pdf-thumb strong,
+.trail-item .pdf-thumb strong,
+.compare-card .pdf-thumb strong {
+  display: none;
 }
 
 @keyframes tileFloat {
@@ -2146,6 +2205,27 @@ h1 {
   .summary-dialog .close-button,
   .summary-actions {
     display: none !important;
+  }
+}
+
+@media (max-width: 1120px) {
+  .detail-info {
+    padding: 44px 18px 22px;
+  }
+
+  .related-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .related-card {
+    grid-template-columns: 58px minmax(0, 1fr);
+    min-height: 84px;
+  }
+
+  .related-card img,
+  .related-card .pdf-thumb {
+    width: 58px;
+    height: 68px;
   }
 }
 
