@@ -811,7 +811,6 @@
               <h3>导览词</h3>
               <p id="docentText">${escapeHtml(guide)}</p>
             </div>
-            <button class="ghost-action" id="speakDocent" type="button">听讲解</button>
           </section>
           <section class="related-panel">
             <h3>同类线索</h3>
@@ -882,29 +881,6 @@
         <button class="mini-button" type="button" data-remove="${item.id}" aria-label="移出对照" title="移出对照">×</button>
       </div>
     `).join("");
-  }
-
-  function speakDocent() {
-    const text = $("#docentText")?.textContent;
-    const button = $("#speakDocent");
-    if (!text || !("speechSynthesis" in window) || typeof window.SpeechSynthesisUtterance !== "function") {
-      if (button) button.textContent = "当前浏览器不支持语音";
-      return;
-    }
-    if (window.speechSynthesis.speaking) {
-      window.speechSynthesis.cancel();
-      if (button) button.textContent = "听讲解";
-      return;
-    }
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "zh-CN";
-    utterance.rate = 0.92;
-    utterance.onend = () => {
-      const button = $("#speakDocent");
-      if (button) button.textContent = "听讲解";
-    };
-    if (button) button.textContent = "停止讲解";
-    window.speechSynthesis.speak(utterance);
   }
 
   function setActiveStop(index) {
@@ -1150,11 +1126,6 @@
         return;
       }
 
-      if (closestTarget(event.target, "#speakDocent")) {
-        speakDocent();
-        return;
-      }
-
       if (closestTarget(event.target, "#clearTrail")) {
         state.viewed = [];
         saveViewed();
@@ -1298,7 +1269,6 @@
 
     $("#themeToggle").addEventListener("click", () => document.body.classList.toggle("dark"));
     $("#closeDialog").addEventListener("click", () => {
-      if ("speechSynthesis" in window) window.speechSynthesis.cancel();
       closeDialog(els.detailDialog);
     });
     $("#closeSummary").addEventListener("click", () => closeDialog(els.summaryDialog));
