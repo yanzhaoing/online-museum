@@ -3,6 +3,7 @@
 # Keep the deployable museum app, generated thumbnails, catalog metadata, docs, and BAT scripts tracked.
 
 .online-museum-server.pid
+.online-museum-server.port
 node_modules/
 dist/
 .vite/
