@@ -65,6 +65,8 @@ npm run dev
 http://127.0.0.1:8765/online-museum/index.html
 ```
 
+macOS 下如果原始素材放在移动硬盘 `/Volumes/Untitled/民间藏品`，不需要把 34GB 文件复制进仓库。请参考 [MACOS_BUILD_DEV_GUIDE.md](./MACOS_BUILD_DEV_GUIDE.md)，用符号链接把移动硬盘里的素材目录映射到仓库根目录。
+
 ## 如果要线上托管原始素材
 
 如果需要让公网版本也能打开原始档案，建议不要放在 GitHub 仓库里，而是使用：

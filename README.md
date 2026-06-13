@@ -33,12 +33,15 @@ http://127.0.0.1:8765/online-museum/index.html
 - `vite.config.js` / `package.json`：Vite + Vue 开发与静态构建配置
 - `启动线上博物馆.bat` / `关闭线上博物馆.bat`：本地启动与关闭脚本
 - `ASSET_GUIDE.md`：原始大素材放置说明
+- `MACOS_BUILD_DEV_GUIDE.md`：macOS 下使用移动硬盘素材的开发与构建说明
 
 ## 关于原始素材
 
 完整原始档案约 34GB，且存在多个超过 GitHub 100MB 限制的 PDF。为了让仓库可正常推送和克隆，原始大文件没有纳入 Git。
 
 页面仍会显示缩略图和目录信息；如需启用“打开原始档案”，请按 [ASSET_GUIDE.md](./ASSET_GUIDE.md) 将原始素材目录放回项目根目录。
+
+macOS 下如果原始素材在移动硬盘 `/Volumes/Untitled/民间藏品`，请按 [MACOS_BUILD_DEV_GUIDE.md](./MACOS_BUILD_DEV_GUIDE.md) 用符号链接映射素材目录，不需要复制 34GB 文件。
 
 ## 发布说明
 
