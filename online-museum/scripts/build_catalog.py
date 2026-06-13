@@ -15,11 +15,16 @@ MEDIA_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".pdf"}
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 CATEGORY_WORDS = ["文献类", "票据类", "字画类", "器物类", "徽章印章类", "碑拓", "地契"]
 SKIP_DIRS = {"online-museum"}
+GENERIC_SOURCE_COLLECTORS = {"给编委会的", "党史办"}
 
 
 def clean_collector(name: str) -> str:
     name = re.sub(r"[（(].*?[）)]", "", name)
     name = name.replace("馆内 ", "").strip()
+    if "档案馆" in name:
+        return "档案馆"
+    if name in GENERIC_SOURCE_COLLECTORS:
+        return "馆藏"
     return name or "馆内"
 
 

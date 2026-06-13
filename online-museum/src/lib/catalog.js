@@ -1,7 +1,33 @@
 const catalog = window.MUSEUM_CATALOG || { items: [], stats: {} };
+const GENERIC_SOURCE_COLLECTORS = new Set(["给编委会的", "党史办"]);
 
 export const catalogStats = catalog.stats || {};
-export const catalogItems = Array.isArray(catalog.items) ? catalog.items : [];
+export const catalogItems = Array.isArray(catalog.items) ? catalog.items.map(normalizeCatalogItem) : [];
+
+export function normalizeCollectorName(name) {
+  const value = String(name || "").trim();
+  if (!value) return "馆藏";
+  if (value.includes("档案馆")) return "档案馆";
+  if (GENERIC_SOURCE_COLLECTORS.has(value)) return "馆藏";
+  return value;
+}
+
+function buildSearchText(item) {
+  return [
+    item.code,
+    item.title,
+    item.collector,
+    item.category,
+    item.kindLabel,
+    item.fileName,
+    item.folder,
+  ].filter(Boolean).join(" ").toLowerCase();
+}
+
+function normalizeCatalogItem(item) {
+  const normalized = { ...item, collector: normalizeCollectorName(item?.collector) };
+  return { ...normalized, search: buildSearchText(normalized) };
+}
 
 export function uniqueSorted(source, key) {
   return [...new Set(source.map((item) => item[key]).filter(Boolean))].sort((a, b) => a.localeCompare(b, "zh-CN"));
