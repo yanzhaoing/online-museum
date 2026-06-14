@@ -10,6 +10,8 @@ Windows 下双击：
 - 浏览器打开 `http://127.0.0.1:8765/online-museum/index.html`
 - 关闭时双击 `关闭线上博物馆.bat`
 
+Windows 演示机或 Windows Server 上的完整操作步骤见 [WINDOWS_NPM_DEV_GUIDE.md](./WINDOWS_NPM_DEV_GUIDE.md)。
+
 也可以手动启动：
 
 ```powershell
@@ -33,6 +35,7 @@ http://127.0.0.1:8765/online-museum/index.html
 - `vite.config.js` / `package.json`：Vite + Vue 开发与静态构建配置
 - `启动线上博物馆.bat` / `关闭线上博物馆.bat`：本地启动与关闭脚本
 - `ASSET_GUIDE.md`：原始大素材放置说明
+- `WINDOWS_NPM_DEV_GUIDE.md`：Windows 上运行 npm dev 的演示指南
 - `MACOS_BUILD_DEV_GUIDE.md`：macOS 下使用移动硬盘素材的开发与构建说明
 
 ## 关于原始素材
