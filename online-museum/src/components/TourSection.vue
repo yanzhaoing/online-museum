@@ -1,241 +1,888 @@
 <script setup>
-import { nextTick, ref, watch } from "vue";
-import MediaPreview from "./MediaPreview.vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useMuseumContext } from "../composables/useMuseumContext";
-import { displayTitle } from "../lib/catalog";
+import { displayTitle, fileUrl, previewPath } from "../lib/catalog";
 
-const {
-  tour,
-  activeStop,
-  autoTour,
-  tourSummary,
-  activeTourItem,
-  activeTourBasis,
-  activeTourProgress,
-  activeDocentText,
-  openDetail,
-  previousStop,
-  nextStop,
-  setActiveStop,
-  continueTour,
-  toggleAutoTour,
-  shuffleTour,
-  stopAutoTour,
-} = useMuseumContext();
+const { virtualGallery, openDetail, showToast } = useMuseumContext();
 
-const stageRef = ref(null);
-const stopRefs = ref([]);
-const stageTransitioning = ref(false);
-const hud = ref({ visible: false, left: 16, top: 16, title: "", meta: "" });
+const sectionRef = ref(null);
+const canvasRef = ref(null);
+const viewportRef = ref(null);
+const activeIndex = ref(0);
+const autoTour = ref(false);
+const orbitView = ref(false);
+const routeMapOpen = ref(false);
+const canvasReady = ref(false);
+const sceneLoading = ref(false);
+const sceneLoadLabel = ref("进入展馆时加载 3D 游览");
+const sceneLoadProgress = ref(6);
+const webglFailed = ref(false);
+const sceneStatus = ref("拖动屏幕环顾展厅，使用底部控件沿默认游线移动。");
 
-function setStopRef(el, index) {
-  if (el) stopRefs.value[index] = el;
+const route = computed(() => virtualGallery.route);
+const zones = computed(() => virtualGallery.zones.filter((zone) => zone.exhibits.length));
+const activeItem = computed(() => route.value[activeIndex.value]);
+const previousPreviewItem = computed(() => route.value[(activeIndex.value - 1 + route.value.length) % Math.max(1, route.value.length)]);
+const activeZone = computed(() => zones.value.find((zone) => zone.category === activeItem.value?.galleryZone));
+const activeProgress = computed(() => Math.round((activeIndex.value + 1) / Math.max(1, route.value.length) * 100));
+const activeZoneIndex = computed(() => Math.max(0, zones.value.findIndex((zone) => zone.category === activeItem.value?.galleryZone)));
+
+let renderer;
+let scene;
+let camera;
+let animationFrame = 0;
+let resizeObserver;
+let autoTimer = 0;
+let textureLoader;
+let routeGroup;
+let startTime = 0;
+let THREE;
+let threeModulePromise;
+let sceneObserver;
+let sceneStarted = false;
+let isDisposed = false;
+let cameraPosition;
+let cameraLookTarget;
+
+const interactives = [];
+const textureCache = new Map();
+const texturePromises = new Map();
+const placeholderTextureCache = new Map();
+const artworkMaterials = new Map();
+const placements = new Map();
+const dragState = { active: false, x: 0, y: 0, moved: 0 };
+const lookOffset = { yaw: 0, pitch: 0 };
+const MIN_GALLERY_LOADER_MS = 650;
+
+function exhibitSrc(item) {
+  return fileUrl(previewPath(item));
 }
 
-function pedestalStyle(index) {
-  const offset = index - activeStop.value;
-  const absOffset = Math.abs(offset);
-  return {
-    "--x": `${50 + offset * 16}%`,
-    "--y": `${index === activeStop.value ? 48 : 45 + Math.min(absOffset, 4) * 4}%`,
-    "--rotate": `${index === activeStop.value ? 0 : offset * -4}deg`,
-    "--depth": `${index === activeStop.value ? 120 : 44 - absOffset * 34}px`,
-    "--opacity": absOffset > 4 ? 0.26 : Math.max(0.46, 1 - absOffset * 0.12),
-    "--base-scale": index === activeStop.value ? 1.12 : Math.max(0.72, 0.96 - absOffset * 0.07),
-    "--side": offset,
-    "--abs-offset": absOffset,
-    "--stop-index": index,
+function setActive(index, announce = true) {
+  if (!route.value.length) return;
+  const next = (index + route.value.length) % route.value.length;
+  activeIndex.value = next;
+  const item = route.value[next];
+  sceneStatus.value = `正在观看：${item.galleryShortTitle}。${item.galleryIntro}`;
+  warmRouteTextures(next);
+  if (announce) showToast(`已移动到：${item.galleryShortTitle}`);
+}
+
+function nextStop() {
+  stopAutoTour();
+  setActive(activeIndex.value + 1);
+}
+
+function previousStop() {
+  stopAutoTour();
+  setActive(activeIndex.value - 1);
+}
+
+function continueTour() {
+  setActive(activeIndex.value + 1);
+}
+
+function toggleAutoTour() {
+  if (autoTour.value) {
+    stopAutoTour();
+    return;
+  }
+  autoTour.value = true;
+  sceneStatus.value = "默认游线自动前进中。";
+  autoTimer = window.setInterval(() => setActive(activeIndex.value + 1, false), 4800);
+}
+
+function stopAutoTour() {
+  autoTour.value = false;
+  if (autoTimer) window.clearInterval(autoTimer);
+  autoTimer = 0;
+}
+
+function toggleOrbit() {
+  orbitView.value = !orbitView.value;
+  sceneStatus.value = orbitView.value ? "环视模式已开启，画面会围绕当前展品轻微移动。" : "环视模式已关闭。";
+}
+
+function nudgeLook(direction) {
+  stopAutoTour();
+  if (direction === "left") lookOffset.yaw = Math.max(-0.52, lookOffset.yaw - 0.18);
+  if (direction === "right") lookOffset.yaw = Math.min(0.52, lookOffset.yaw + 0.18);
+  if (direction === "up") setActive(activeIndex.value + 1);
+  if (direction === "down") setActive(activeIndex.value - 1);
+}
+
+function goToZone(category) {
+  stopAutoTour();
+  const index = route.value.findIndex((item) => item.galleryZone === category);
+  if (index >= 0) setActive(index);
+  routeMapOpen.value = false;
+}
+
+function resetView() {
+  lookOffset.yaw = 0;
+  lookOffset.pitch = 0;
+  orbitView.value = false;
+  sceneStatus.value = "视角已回到默认游线方向。";
+}
+
+function openActiveDetail() {
+  if (activeItem.value) openDetail(activeItem.value.id);
+}
+
+function onViewportPointerDown(event) {
+  dragState.active = true;
+  dragState.x = event.clientX;
+  dragState.y = event.clientY;
+  dragState.moved = 0;
+  viewportRef.value?.setPointerCapture?.(event.pointerId);
+}
+
+function onViewportPointerMove(event) {
+  if (!dragState.active) return;
+  const dx = event.clientX - dragState.x;
+  const dy = event.clientY - dragState.y;
+  dragState.x = event.clientX;
+  dragState.y = event.clientY;
+  dragState.moved += Math.abs(dx) + Math.abs(dy);
+  lookOffset.yaw = Math.max(-0.62, Math.min(0.62, lookOffset.yaw - dx / 420));
+  lookOffset.pitch = Math.max(-0.22, Math.min(0.24, lookOffset.pitch + dy / 760));
+}
+
+function onViewportPointerUp(event) {
+  if (!dragState.active) return;
+  viewportRef.value?.releasePointerCapture?.(event.pointerId);
+  dragState.active = false;
+}
+
+async function loadThreeModule() {
+  if (THREE) return THREE;
+  sceneLoadLabel.value = "加载 3D 展馆引擎";
+  sceneLoadProgress.value = Math.max(sceneLoadProgress.value, 18);
+  if (!threeModulePromise) threeModulePromise = import("../lib/three-gallery");
+  THREE = await threeModulePromise;
+  return THREE;
+}
+
+function scheduleSceneStart() {
+  if (sceneStarted || !sectionRef.value) return;
+  sceneLoading.value = true;
+  sceneLoadLabel.value = "靠近展馆时加载 3D 游览";
+  sceneLoadProgress.value = 6;
+
+  if (window.location.hash === "#hall" || !("IntersectionObserver" in window)) {
+    initScene();
+    return;
+  }
+
+  sceneObserver = new IntersectionObserver(
+    (entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      sceneObserver?.disconnect();
+      sceneObserver = null;
+      initScene();
+    },
+    { rootMargin: "260px 0px" }
+  );
+  sceneObserver.observe(sectionRef.value);
+}
+
+function activateFallbackGallery() {
+  webglFailed.value = true;
+  canvasReady.value = true;
+  sceneLoading.value = false;
+  sceneLoadProgress.value = 100;
+  sceneStatus.value = "当前浏览器使用轻量展馆视图，可继续按默认游线参观。";
+  nextTick(() => setActive(0, false));
+}
+
+function createGalleryRenderer(canvas) {
+  const attributes = {
+    antialias: true,
+    alpha: false,
+    preserveDrawingBuffer: true,
+    powerPreference: "high-performance",
   };
-}
+  const context =
+    canvas.getContext("webgl2", attributes) ||
+    canvas.getContext("webgl", attributes) ||
+    canvas.getContext("experimental-webgl", attributes);
+  if (!context) return null;
 
-function goToStop(index) {
-  stopAutoTour();
-  setActiveStop(index);
-}
-
-function goPrevious() {
-  stopAutoTour();
-  previousStop();
-}
-
-function goNext() {
-  stopAutoTour();
-  nextStop();
-}
-
-function handleStagePointerMove(event) {
-  if (!stageRef.value) return;
-  const rect = stageRef.value.getBoundingClientRect();
-  const x = Math.max(0, Math.min(100, (event.clientX - rect.left) / rect.width * 100));
-  const y = Math.max(0, Math.min(100, (event.clientY - rect.top) / rect.height * 100));
-  stageRef.value.style.setProperty("--stage-x", `${x}%`);
-  stageRef.value.style.setProperty("--stage-y", `${y}%`);
-  stageRef.value.style.setProperty("--stage-tilt", `${(x - 50) / 18}deg`);
-
-  const pedestal = event.target.closest?.(".pedestal");
-  if (!pedestal) return;
-  const item = tour.value.find((entry) => entry.id === pedestal.dataset.id);
-  if (!item) return;
-  hud.value = {
-    visible: true,
-    left: Math.max(16, Math.min(Math.max(16, rect.width - 260), event.clientX - rect.left + 18)),
-    top: Math.max(16, Math.min(Math.max(16, rect.height - 110), event.clientY - rect.top + 18)),
-    title: displayTitle(item),
-    meta: `${item.collector} / ${item.category} / ${item.kindLabel}`,
-  };
-}
-
-function handleStagePointerLeave() {
-  if (!stageRef.value) return;
-  stageRef.value.style.setProperty("--stage-x", "50%");
-  stageRef.value.style.setProperty("--stage-y", "48%");
-  stageRef.value.style.setProperty("--stage-tilt", "0deg");
-  hud.value.visible = false;
-}
-
-function pulseStage() {
-  stageTransitioning.value = false;
-  window.requestAnimationFrame(() => {
-    stageTransitioning.value = true;
-    window.setTimeout(() => {
-      stageTransitioning.value = false;
-    }, 460);
+  return new THREE.WebGLRenderer({
+    canvas,
+    context,
+    antialias: true,
+    alpha: false,
+    preserveDrawingBuffer: true,
+    powerPreference: "high-performance",
   });
 }
 
-watch(activeStop, async () => {
-  await nextTick();
-  stopRefs.value[activeStop.value]?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  pulseStage();
+async function initScene() {
+  if (sceneStarted || !canvasRef.value || !viewportRef.value || !route.value.length) return;
+  sceneStarted = true;
+  const loadingStartedAt = performance.now();
+  sceneLoading.value = true;
+  sceneLoadLabel.value = "准备展馆空间";
+  sceneLoadProgress.value = Math.max(sceneLoadProgress.value, 12);
+
+  try {
+    await loadThreeModule();
+  } catch (error) {
+    activateFallbackGallery();
+    return;
+  }
+  if (isDisposed) return;
+
+  cameraPosition = new THREE.Vector3(0, 1.7, 8);
+  cameraLookTarget = new THREE.Vector3(0, 1.8, 0);
+  sceneLoadLabel.value = "搭建展墙、天窗与游线";
+  sceneLoadProgress.value = 38;
+
+  try {
+    renderer = createGalleryRenderer(canvasRef.value);
+  } catch (error) {
+    activateFallbackGallery();
+    return;
+  }
+  if (!renderer) {
+    activateFallbackGallery();
+    return;
+  }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.setClearColor(0xeee5d8, 1);
+
+  scene = new THREE.Scene();
+
+  camera = new THREE.PerspectiveCamera(58, 1, 0.1, 110);
+  camera.position.copy(cameraPosition);
+
+  textureLoader = new THREE.TextureLoader();
+  startTime = performance.now();
+
+  buildLighting();
+  buildArchitecture();
+  buildExhibits();
+  resizeRenderer();
+  sceneLoadLabel.value = "加载首件展品影像";
+  sceneLoadProgress.value = 74;
+  await prepareInitialTextures();
+  await waitForMinimumLoader(loadingStartedAt);
+  if (isDisposed) return;
+
+  resizeObserver = new ResizeObserver(resizeRenderer);
+  resizeObserver.observe(viewportRef.value);
+  animate();
+  canvasReady.value = true;
+  sceneLoading.value = false;
+  sceneLoadProgress.value = 100;
+  nextTick(() => setActive(0, false));
+}
+
+function waitForMinimumLoader(startedAt) {
+  const remaining = MIN_GALLERY_LOADER_MS - (performance.now() - startedAt);
+  if (remaining <= 0) return Promise.resolve();
+  return new Promise((resolve) => window.setTimeout(resolve, remaining));
+}
+
+function buildLighting() {
+  scene.add(new THREE.HemisphereLight(0xfff6e5, 0x6b6258, 1.8));
+  const sun = new THREE.DirectionalLight(0xfff4dc, 2.2);
+  sun.position.set(-4, 9, 8);
+  sun.castShadow = false;
+  scene.add(sun);
+
+}
+
+function buildArchitecture() {
+  const length = Math.max(62, route.value.length * 2.62 + 16);
+  const centerZ = -length / 2 + 5;
+  const stone = new THREE.MeshLambertMaterial({ color: 0xd9cfbd });
+  const stoneDark = new THREE.MeshLambertMaterial({ color: 0x30302d });
+  const floorMaterial = new THREE.MeshLambertMaterial({ color: 0xcfc4b3 });
+  const ceilingMaterial = new THREE.MeshLambertMaterial({ color: 0xe7dfd2 });
+  const glassMaterial = new THREE.MeshLambertMaterial({
+    color: 0xc8e2e7,
+    transparent: true,
+    opacity: 0.36,
+  });
+
+  addBox("floor", [12.4, 0.08, length], [0, -0.05, centerZ], floorMaterial);
+  addBox("left-wall", [0.18, 5.4, length], [-6.1, 2.55, centerZ], stone);
+  addBox("right-wall", [0.18, 5.4, length], [6.1, 2.55, centerZ], stone);
+  addBox("dark-rubbing-wall", [0.22, 4.8, 17], [6.0, 2.4, -route.value.length * 1.95], stoneDark);
+  addBox("end-wall", [12.4, 5.4, 0.18], [0, 2.55, -length + 5], stone);
+  addBox("ceiling-left", [3.4, 0.14, length], [-4.0, 5.08, centerZ], ceilingMaterial);
+  addBox("ceiling-right", [3.4, 0.14, length], [4.0, 5.08, centerZ], ceilingMaterial);
+
+  for (let z = 1; z > -length + 8; z -= 8.4) {
+    addBox("skylight", [3.7, 0.05, 3.7], [0, 5.05, z - 2.8], glassMaterial);
+    addBox("skylight-beam-a", [0.12, 0.16, 4.0], [-2.02, 5.12, z - 2.8], ceilingMaterial);
+    addBox("skylight-beam-b", [0.12, 0.16, 4.0], [2.02, 5.12, z - 2.8], ceilingMaterial);
+    addBox("column-left", [0.34, 4.2, 0.34], [-5.35, 2.05, z - 0.2], stone);
+    addBox("column-right", [0.34, 4.2, 0.34], [5.35, 2.05, z - 0.2], stone);
+  }
+
+  const pathMaterial = new THREE.MeshBasicMaterial({ color: 0xb98a36, transparent: true, opacity: 0.5 });
+  for (let i = 0; i < route.value.length; i += 1) {
+    const z = exhibitZ(i);
+    addBox("route-dot", [0.34, 0.014, 0.34], [0, 0.012, z + 1.1], pathMaterial);
+    if (i < route.value.length - 1) addBox("route-line", [0.055, 0.012, 2.0], [0, 0.014, z - 0.05], pathMaterial);
+  }
+}
+
+function buildExhibits() {
+  routeGroup = new THREE.Group();
+  scene.add(routeGroup);
+
+  route.value.forEach((item, index) => {
+    const placement = placementFor(item, index);
+    placements.set(index, placement);
+    if (placement.localIndex === 0) addZoneSign(item, placement);
+    if (item.galleryLayout === "case") addDisplayCase(placement);
+    if (item.galleryLayout === "plinth") addPlinth(placement);
+    addArtwork(item, placement, index);
+  });
+}
+
+function placementFor(item, index) {
+  const zone = zones.value.find((entry) => entry.category === item.galleryZone);
+  const localIndex = zone?.exhibits.findIndex((entry) => entry.id === item.id) ?? 0;
+  const z = exhibitZ(index);
+  if (item.galleryLayout === "dark-wall") {
+    return { side: "right", x: 5.88, y: 2.42, z, rotationY: -Math.PI / 2, localIndex };
+  }
+  if (item.galleryLayout === "case") {
+    return { side: "case", x: localIndex % 2 ? 2.05 : -2.05, y: 1.38, z, rotationY: 0, localIndex };
+  }
+  if (item.galleryLayout === "plinth") {
+    return { side: "plinth", x: localIndex % 2 ? 2.25 : -2.25, y: 1.74, z, rotationY: 0, localIndex };
+  }
+  const left = index % 2 === 0;
+  return {
+    side: left ? "left" : "right",
+    x: left ? -5.88 : 5.88,
+    y: item.galleryLayout === "archive-wall" ? 2.48 : 2.28,
+    z,
+    rotationY: left ? Math.PI / 2 : -Math.PI / 2,
+    localIndex,
+  };
+}
+
+function exhibitZ(index) {
+  return -index * 2.65 - 2.1;
+}
+
+function addArtwork(item, placement, index) {
+  const { width, height } = artworkSize(item);
+  const textureSrc = exhibitSrc(item);
+  const material = new THREE.MeshBasicMaterial({
+    color: 0xffffff,
+    map: makeArtworkPlaceholderTexture(item, width, height),
+    side: THREE.DoubleSide,
+  });
+  material.userData.textureSrc = textureSrc;
+  artworkMaterials.set(index, material);
+  const art = new THREE.Mesh(new THREE.PlaneGeometry(width, height), material);
+  art.position.set(placement.x, placement.y, placement.z);
+  art.rotation.y = placement.rotationY;
+  art.userData.routeIndex = index;
+
+  if (placement.side === "case") {
+    art.rotation.x = -Math.PI / 5.3;
+    art.position.y = 1.25;
+  }
+  if (placement.side === "plinth") {
+    art.position.y = 1.84;
+    art.rotation.y = placement.x < 0 ? Math.PI / 9 : -Math.PI / 9;
+  }
+
+  const frame = makeFrame(width, height, item.galleryAccent);
+  frame.position.copy(art.position);
+  frame.rotation.copy(art.rotation);
+  frame.userData.routeIndex = index;
+
+  routeGroup.add(frame);
+  routeGroup.add(art);
+  interactives.push(art, frame);
+
+  const label = makeLabelPlane(item.galleryShortTitle, `${item.collector} / ${item.category}`, {
+    width: Math.max(1.42, width * 0.94),
+    height: 0.42,
+    background: "rgba(25,23,20,0.82)",
+    accent: item.galleryAccent,
+  });
+  label.position.set(placement.x, placement.y - height / 2 - 0.32, placement.z);
+  label.rotation.y = placement.rotationY;
+  if (placement.side === "case" || placement.side === "plinth") {
+    label.position.set(placement.x, 0.74, placement.z + 0.72);
+    label.rotation.y = 0;
+  }
+  routeGroup.add(label);
+}
+
+function artworkSize(item) {
+  if (item.galleryLayout === "paper-wall") return { width: 1.72, height: 1.18 };
+  if (item.galleryLayout === "archive-wall") return { width: 1.22, height: 1.72 };
+  if (item.galleryLayout === "dark-wall") return { width: 1.28, height: 2.06 };
+  if (item.galleryLayout === "case") return { width: 1.18, height: 0.92 };
+  return { width: 1.44, height: 1.06 };
+}
+
+function makeFrame(width, height, accent) {
+  const frame = new THREE.Group();
+  const mat = new THREE.MeshLambertMaterial({ color: hexColor(accent) });
+  const back = new THREE.Mesh(
+    new THREE.BoxGeometry(width + 0.18, height + 0.18, 0.045),
+    new THREE.MeshLambertMaterial({ color: 0xf5eedf })
+  );
+  back.position.z = -0.055;
+  frame.add(back);
+  const top = new THREE.Mesh(new THREE.BoxGeometry(width + 0.24, 0.052, 0.068), mat);
+  const bottom = top.clone();
+  const left = new THREE.Mesh(new THREE.BoxGeometry(0.052, height + 0.2, 0.068), mat);
+  const right = left.clone();
+  top.position.y = height / 2 + 0.08;
+  bottom.position.y = -height / 2 - 0.08;
+  left.position.x = -width / 2 - 0.08;
+  right.position.x = width / 2 + 0.08;
+  top.position.z = 0.025;
+  bottom.position.z = 0.025;
+  left.position.z = 0.025;
+  right.position.z = 0.025;
+  frame.add(top, bottom, left, right);
+  return frame;
+}
+
+function hexColor(value, fallback = 0xb98a36) {
+  const parsed = Number.parseInt(String(value || "").replace("#", ""), 16);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function addZoneSign(item, placement) {
+  const sign = makeLabelPlane(item.galleryZoneTitle, item.gallerySubtitle, {
+    width: 2.6,
+    height: 0.92,
+    background: item.galleryLayout === "dark-wall" ? "rgba(20,20,19,0.92)" : "rgba(247,240,226,0.92)",
+    foreground: item.galleryLayout === "dark-wall" ? "#fff4df" : "#2a2721",
+    muted: item.galleryLayout === "dark-wall" ? "rgba(255,244,223,0.72)" : "#766a58",
+    accent: item.galleryAccent,
+  });
+  const wallSide = placement.side === "right" ? "right" : "left";
+  sign.position.set(wallSide === "left" ? -5.86 : 5.86, 3.82, placement.z + 1.25);
+  sign.rotation.y = wallSide === "left" ? Math.PI / 2 : -Math.PI / 2;
+  routeGroup.add(sign);
+}
+
+function addDisplayCase(placement) {
+  const base = new THREE.Mesh(
+    new THREE.BoxGeometry(2.0, 0.44, 1.26),
+    new THREE.MeshLambertMaterial({ color: 0x8a6a45 })
+  );
+  base.position.set(placement.x, 0.32, placement.z);
+  routeGroup.add(base);
+
+  const glass = new THREE.Mesh(
+    new THREE.BoxGeometry(2.06, 0.52, 1.32),
+    new THREE.MeshLambertMaterial({
+      color: 0xd7edf0,
+      transparent: true,
+      opacity: 0.24,
+    })
+  );
+  glass.position.set(placement.x, 0.82, placement.z);
+  routeGroup.add(glass);
+}
+
+function addPlinth(placement) {
+  const plinth = new THREE.Mesh(
+    new THREE.BoxGeometry(1.16, 1.12, 1.16),
+    new THREE.MeshLambertMaterial({ color: 0xcac0ad })
+  );
+  plinth.position.set(placement.x, 0.56, placement.z);
+  routeGroup.add(plinth);
+}
+
+function addBox(name, size, position, material) {
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material);
+  mesh.name = name;
+  mesh.position.set(...position);
+  scene.add(mesh);
+  return mesh;
+}
+
+function configureTexture(texture) {
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.anisotropy = 4;
+  return texture;
+}
+
+function applyArtworkTexture(src, texture) {
+  artworkMaterials.forEach((material) => {
+    if (material.userData.textureSrc !== src) return;
+    material.map = texture;
+    material.needsUpdate = true;
+  });
+}
+
+function ensureArtworkTexture(index) {
+  if (!textureLoader) return Promise.resolve(null);
+  const item = route.value[index];
+  if (!item) return Promise.resolve(null);
+  const src = exhibitSrc(item);
+  if (textureCache.has(src)) {
+    applyArtworkTexture(src, textureCache.get(src));
+    return Promise.resolve(textureCache.get(src));
+  }
+  if (texturePromises.has(src)) return texturePromises.get(src);
+
+  const promise = new Promise((resolve) => {
+    textureLoader.load(
+      src,
+      (texture) => {
+        const configured = configureTexture(texture);
+        textureCache.set(src, configured);
+        texturePromises.delete(src);
+        applyArtworkTexture(src, configured);
+        resolve(configured);
+      },
+      undefined,
+      () => {
+        texturePromises.delete(src);
+        resolve(null);
+      }
+    );
+  });
+  texturePromises.set(src, promise);
+  return promise;
+}
+
+function routeIndex(index) {
+  if (!route.value.length) return 0;
+  return (index + route.value.length) % route.value.length;
+}
+
+function warmRouteTextures(center = activeIndex.value) {
+  if (!textureLoader) return;
+  [-1, 0, 1, 2].forEach((offset) => {
+    ensureArtworkTexture(routeIndex(center + offset));
+  });
+}
+
+async function prepareInitialTextures() {
+  warmRouteTextures(activeIndex.value);
+  await Promise.race([
+    Promise.all([ensureArtworkTexture(activeIndex.value), ensureArtworkTexture(routeIndex(activeIndex.value + 1))]),
+    new Promise((resolve) => window.setTimeout(resolve, 1800)),
+  ]);
+}
+
+function makeArtworkPlaceholderTexture(item, width, height) {
+  const key = `${item.id}:${width}:${height}`;
+  if (placeholderTextureCache.has(key)) return placeholderTextureCache.get(key);
+  const canvas = document.createElement("canvas");
+  canvas.width = 768;
+  canvas.height = Math.max(420, Math.round(768 * height / width));
+  const ctx = canvas.getContext("2d");
+  const accent = item.galleryAccent || "#b98a36";
+
+  const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+  gradient.addColorStop(0, "#fbf4e6");
+  gradient.addColorStop(1, "#ded2bd");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = 12;
+  ctx.strokeRect(30, 30, canvas.width - 60, canvas.height - 60);
+  ctx.fillStyle = "rgba(42,39,33,0.78)";
+  ctx.font = "700 54px 'PingFang SC', 'Microsoft YaHei', sans-serif";
+  wrapCanvasText(ctx, item.galleryShortTitle, 72, 138, canvas.width - 144, 62, 2);
+  ctx.fillStyle = "rgba(42,39,33,0.5)";
+  ctx.font = "400 32px 'PingFang SC', 'Microsoft YaHei', sans-serif";
+  wrapCanvasText(ctx, "影像沿游线加载中", 72, canvas.height - 104, canvas.width - 144, 42, 1);
+
+  const texture = configureTexture(new THREE.CanvasTexture(canvas));
+  placeholderTextureCache.set(key, texture);
+  return texture;
+}
+
+function makeLabelPlane(title, subtitle, options = {}) {
+  const width = options.width || 2.2;
+  const height = options.height || 0.64;
+  const canvas = document.createElement("canvas");
+  canvas.width = 1024;
+  canvas.height = Math.round(1024 * height / width);
+  const ctx = canvas.getContext("2d");
+  const bg = options.background || "rgba(25,23,20,0.82)";
+  const fg = options.foreground || "#fff4df";
+  const muted = options.muted || "rgba(255,244,223,0.76)";
+  const accent = options.accent || "#b98a36";
+
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = accent;
+  ctx.fillRect(0, 0, 18, canvas.height);
+  ctx.fillStyle = fg;
+  ctx.font = "700 72px 'PingFang SC', 'Microsoft YaHei', sans-serif";
+  ctx.fillText(title, 54, 104);
+  ctx.fillStyle = muted;
+  ctx.font = "400 38px 'PingFang SC', 'Microsoft YaHei', sans-serif";
+  wrapCanvasText(ctx, subtitle, 54, 168, canvas.width - 92, 48, 2);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide });
+  return new THREE.Mesh(new THREE.PlaneGeometry(width, height), material);
+}
+
+function wrapCanvasText(ctx, text, x, y, maxWidth, lineHeight, maxLines) {
+  const chars = Array.from(String(text || ""));
+  let line = "";
+  let lines = 0;
+  for (const char of chars) {
+    const test = line + char;
+    if (ctx.measureText(test).width > maxWidth && line) {
+      ctx.fillText(line, x, y);
+      line = char;
+      y += lineHeight;
+      lines += 1;
+      if (lines >= maxLines) return;
+    } else {
+      line = test;
+    }
+  }
+  if (line && lines < maxLines) ctx.fillText(line, x, y);
+}
+
+function resizeRenderer() {
+  if (!renderer || !camera || !viewportRef.value) return;
+  const rect = viewportRef.value.getBoundingClientRect();
+  const width = Math.max(320, Math.round(rect.width));
+  const height = Math.max(420, Math.round(rect.height));
+  renderer.setSize(width, height, false);
+  camera.aspect = width / height;
+  camera.updateProjectionMatrix();
+}
+
+function targetPose() {
+  const placement = placements.get(activeIndex.value);
+  if (!placement) {
+    return {
+      position: new THREE.Vector3(0, 1.7, 8),
+      target: new THREE.Vector3(0, 1.8, 0),
+    };
+  }
+  const position = new THREE.Vector3(0, 1.72, placement.z + 2.25);
+  if (placement.side === "left") position.x = -1.45;
+  if (placement.side === "right") position.x = 1.45;
+  if (placement.side === "case" || placement.side === "plinth") position.x = placement.x * 0.26;
+  const target = new THREE.Vector3(placement.x, placement.y, placement.z);
+  if (placement.side === "case") target.y = 1.08;
+  if (placement.side === "plinth") target.y = 1.52;
+  return { position, target };
+}
+
+function updateActiveMeshes() {
+  interactives.forEach((object) => {
+    const active = object.userData.routeIndex === activeIndex.value;
+    const targetScale = active ? 1.08 : 1;
+    object.scale.x += (targetScale - object.scale.x) * 0.1;
+    object.scale.y += (targetScale - object.scale.y) * 0.1;
+    object.scale.z += (1 - object.scale.z) * 0.1;
+  });
+}
+
+function animate() {
+  const elapsed = (performance.now() - startTime) / 1000;
+  const pose = targetPose();
+  const orbitYaw = orbitView.value ? Math.sin(elapsed * 0.55) * 0.28 : 0;
+  const yaw = lookOffset.yaw + orbitYaw;
+  const target = pose.target.clone();
+  target.x += Math.sin(yaw) * 2.25;
+  target.y += lookOffset.pitch;
+
+  cameraPosition.lerp(pose.position, 0.075);
+  cameraLookTarget.lerp(target, 0.09);
+  camera.position.copy(cameraPosition);
+  camera.lookAt(cameraLookTarget);
+  updateActiveMeshes();
+  renderer?.render(scene, camera);
+  animationFrame = window.requestAnimationFrame(animate);
+}
+
+function disposeScene() {
+  isDisposed = true;
+  stopAutoTour();
+  if (animationFrame) window.cancelAnimationFrame(animationFrame);
+  sceneObserver?.disconnect();
+  resizeObserver?.disconnect();
+  texturePromises.clear();
+  textureCache.forEach((texture) => texture.dispose());
+  textureCache.clear();
+  placeholderTextureCache.forEach((texture) => texture.dispose());
+  placeholderTextureCache.clear();
+  if (scene) {
+    scene.traverse((object) => {
+      object.geometry?.dispose?.();
+      if (Array.isArray(object.material)) object.material.forEach((material) => material.dispose?.());
+      else object.material?.dispose?.();
+    });
+  }
+  renderer?.dispose?.();
+  interactives.length = 0;
+  artworkMaterials.clear();
+  placements.clear();
+}
+
+watch(activeIndex, () => {
+  lookOffset.yaw = 0;
+  lookOffset.pitch = 0;
 });
+
+onMounted(() => {
+  isDisposed = false;
+  scheduleSceneStart();
+});
+onBeforeUnmount(disposeScene);
 </script>
 
 <template>
-  <section class="museum-section" id="hall">
-    <div class="section-heading">
-      <p class="eyebrow">Curated Route</p>
-      <h2>互动展线</h2>
-      <div class="tour-controls" aria-label="展线控制">
-        <button class="icon-action" type="button" aria-label="上一件" title="上一件" @click="goPrevious">‹</button>
-        <button
-          class="ghost-action"
-          :class="{ 'is-live': autoTour }"
-          type="button"
-          :aria-pressed="String(autoTour)"
-          @click="toggleAutoTour"
-        >
-          {{ autoTour ? "暂停导览" : "自动导览" }}
+  <section ref="sectionRef" class="museum-section virtual-gallery-section" id="hall" aria-labelledby="virtualGalleryTitle">
+    <div class="section-heading virtual-heading">
+      <div>
+        <p class="eyebrow">Virtual Gallery</p>
+        <h2 id="virtualGalleryTitle">虚拟展馆</h2>
+        <p>从 {{ virtualGallery.total }} 件精选展品进入五个展区，按默认游线完成一次手机端沉浸参观。</p>
+      </div>
+      <div class="tour-controls" aria-label="虚拟展馆控制">
+        <button class="ghost-action" type="button" :class="{ 'is-live': autoTour }" @click="toggleAutoTour">
+          {{ autoTour ? "暂停游线" : "默认游线" }}
         </button>
-        <button class="icon-action" type="button" aria-label="下一件" title="下一件" @click="goNext">›</button>
-        <button class="ghost-action" type="button" @click="shuffleTour">换一条路线</button>
+        <button class="ghost-action" type="button" @click="routeMapOpen = !routeMapOpen">导览图</button>
       </div>
     </div>
-    <div class="hall-layout">
-      <div class="route-panel">
-        <ol>
-          <li v-for="(item, index) in tour" :key="item.id">
-            <button
-              :ref="(el) => setStopRef(el, index)"
-              class="tour-stop"
-              :class="{ 'is-active': index === activeStop }"
-              type="button"
-              @click="goToStop(index)"
-            >
-              <strong>{{ String(index + 1).padStart(2, "0") }} {{ displayTitle(item) }}</strong>
-              <span>{{ item.collector }} · {{ item.category }}</span>
-            </button>
-          </li>
-        </ol>
-      </div>
-      <div class="stage-wrap">
-        <div
-          ref="stageRef"
-          class="stage"
-          :class="{ 'is-transitioning': stageTransitioning }"
-          tabindex="0"
-          aria-label="互动展厅"
-          @pointermove="handleStagePointerMove"
-          @pointerleave="handleStagePointerLeave"
-          @keydown.right.prevent="goNext"
-          @keydown.left.prevent="goPrevious"
-          @keydown.enter.prevent="activeTourItem && openDetail(activeTourItem.id)"
-        >
-          <div v-if="!tour.length" class="empty-state empty-stage">
-            <strong>没有匹配的展品</strong>
-            <span>请调整关键词或筛选条件后继续浏览。</span>
+
+    <div class="virtual-gallery">
+      <div
+        ref="viewportRef"
+        class="virtual-viewport"
+        :class="{ 'is-ready': canvasReady, 'is-loading': sceneLoading }"
+        @pointerdown="onViewportPointerDown"
+        @pointermove="onViewportPointerMove"
+        @pointerup="onViewportPointerUp"
+        @pointercancel="onViewportPointerUp"
+      >
+        <canvas ref="canvasRef" class="virtual-canvas" aria-hidden="true"></canvas>
+        <div v-if="sceneLoading && !webglFailed" class="gallery-loader" role="status" aria-live="polite">
+          <div class="gallery-loader-mark" aria-hidden="true">
+            <span></span>
+            <span></span>
           </div>
-          <template v-else>
-            <div class="stage-atmosphere" aria-hidden="true">
-              <span>Digital Gallery</span>
-              <strong>{{ activeTourItem.category }}</strong>
-            </div>
-            <div
-              class="stage-hud"
-              :class="{ 'is-visible': hud.visible }"
-              :style="{ left: `${hud.left}px`, top: `${hud.top}px` }"
-              aria-hidden="true"
-            >
-              <strong>{{ hud.title }}</strong>
-              <span>{{ hud.meta }}</span>
-            </div>
-            <div class="stage-track" style="rotate: 0 1 0 var(--stage-tilt, 0deg)">
-              <figure
-                v-for="(item, index) in tour"
-                :key="item.id"
-                class="pedestal"
-                :class="{ 'is-active': index === activeStop }"
-                tabindex="0"
-                :data-id="item.id"
-                :data-stage-index="index"
-                :style="pedestalStyle(index)"
-                @click="openDetail(item.id)"
-                @keydown.enter.prevent="openDetail(item.id)"
-              >
-                <MediaPreview :item="item" />
-                <figcaption>
-                  <strong>{{ displayTitle(item) }}</strong>
-                  <span>{{ item.collector }} / {{ item.category }}</span>
-                </figcaption>
-              </figure>
-            </div>
-            <div class="gallery-floor" aria-hidden="true"></div>
-          </template>
+          <div class="gallery-loader-copy">
+            <strong>{{ sceneLoadLabel }}</strong>
+            <span>先加载展厅，再按游线加载附近展品影像。</span>
+          </div>
+          <div class="gallery-loader-bar" aria-hidden="true">
+            <span :style="{ width: `${sceneLoadProgress}%` }"></span>
+          </div>
         </div>
-        <div class="gallery-guide" aria-live="polite">
-          <template v-if="activeTourItem">
-            <div class="guide-curation">
-              <strong>为什么是这 10 件</strong>
-              <span>{{ tourSummary || "本线根据当前筛选结果生成，优先兼顾可看性、代表性与来源覆盖。" }}</span>
-            </div>
-            <div class="guide-copy">
-              <span class="guide-step">第 {{ String(activeStop + 1).padStart(2, "0") }} 展位 / 共 {{ String(tour.length).padStart(2, "0") }} 件</span>
-              <strong>{{ displayTitle(activeTourItem) }}</strong>
-              <em class="guide-reason">入选依据：{{ activeTourBasis?.reason || "作为本线结构中的代表性条目。" }}</em>
-              <p>{{ activeDocentText }}</p>
-            </div>
-            <div class="guide-actions">
-              <div class="guide-progress" aria-label="导览进度">
-                <span :style="{ width: `${activeTourProgress}%` }"></span>
-              </div>
-              <button class="ghost-action" type="button" @click="openDetail(activeTourItem.id)">查看详情</button>
-              <button class="primary-action guide-next" type="button" @click="continueTour">继续参观</button>
-            </div>
-          </template>
+        <div v-if="webglFailed && activeItem" class="fallback-gallery-scene" aria-hidden="true">
+          <div class="fallback-skylight"></div>
+          <div class="fallback-wall-sign">
+            <strong>{{ activeZone?.title }}</strong>
+            <span>{{ activeZone?.subtitle }}</span>
+          </div>
+          <figure v-if="previousPreviewItem" class="fallback-frame fallback-frame-side">
+            <img :src="exhibitSrc(previousPreviewItem)" :alt="displayTitle(previousPreviewItem)" />
+          </figure>
+          <figure class="fallback-frame fallback-frame-main">
+            <img :src="exhibitSrc(activeItem)" :alt="displayTitle(activeItem)" />
+            <figcaption>
+              <strong>{{ activeItem.galleryShortTitle }}</strong>
+              <span>{{ activeItem.collector }} / {{ activeItem.category }}</span>
+            </figcaption>
+          </figure>
+          <div class="fallback-floor"></div>
         </div>
-        <div class="tour-map" aria-label="展线地图">
-          <button
-            v-for="(item, index) in tour"
-            :key="item.id"
-            class="map-node"
-            :class="{ 'is-active': index === activeStop }"
-            type="button"
-            :aria-label="`跳到第 ${index + 1} 件：${displayTitle(item)}`"
-            @click="goToStop(index)"
-          >
-            <span>{{ String(index + 1).padStart(2, "0") }}</span>
+        <div class="gallery-screen-top">
+          <div>
+            <strong>民间收藏博物馆</strong>
+            <span>{{ activeZone?.title || "默认游线" }}</span>
+          </div>
+          <button class="icon-action gallery-reset" type="button" aria-label="重置视角" title="重置视角" @click.stop="resetView">⌖</button>
+        </div>
+        <button class="walk-cue" type="button" aria-label="继续前进" @click.stop="continueTour">
+          <span>↑</span>
+        </button>
+        <div class="viewport-item-hud" v-if="activeItem">
+          <span>{{ String(activeIndex + 1).padStart(2, "0") }} / {{ String(route.length).padStart(2, "0") }} · {{ activeZone?.title }}</span>
+          <strong>{{ activeItem.galleryShortTitle }}</strong>
+        </div>
+        <div
+          class="phone-controls"
+          aria-label="手机游览控制"
+          @pointerdown.stop
+          @pointermove.stop
+          @pointerup.stop
+          @pointercancel.stop
+          @click.stop
+        >
+          <button class="round-control" type="button" aria-label="后退" @click.stop="previousStop">
+            <span aria-hidden="true">↶</span>
+            <small>后退</small>
+          </button>
+          <div class="joystick" role="group" aria-label="方向控制">
+            <button class="joy-up" type="button" aria-label="前进" @click.stop="nudgeLook('up')">▲</button>
+            <button class="joy-left" type="button" aria-label="向左看" @click.stop="nudgeLook('left')">◀</button>
+            <button class="joy-center" type="button" aria-label="重置视角" @click.stop="resetView"></button>
+            <button class="joy-right" type="button" aria-label="向右看" @click.stop="nudgeLook('right')">▶</button>
+            <button class="joy-down" type="button" aria-label="后退" @click.stop="nudgeLook('down')">▼</button>
+          </div>
+          <button class="round-control" type="button" :class="{ 'is-active': orbitView }" aria-label="环视" @click.stop="toggleOrbit">
+            <span aria-hidden="true">◎</span>
+            <small>环视</small>
           </button>
         </div>
+        <div class="sr-only" aria-live="polite">{{ sceneStatus }}</div>
       </div>
+
+      <aside class="gallery-info" aria-live="polite">
+        <div class="gallery-card" v-if="activeItem">
+          <img :src="exhibitSrc(activeItem)" :alt="displayTitle(activeItem)" />
+          <div class="gallery-card-copy">
+            <span>{{ String(activeIndex + 1).padStart(2, "0") }} / {{ String(route.length).padStart(2, "0") }} · {{ activeZone?.title }}</span>
+            <h3>{{ activeItem.galleryShortTitle }}</h3>
+            <p>{{ activeItem.galleryIntro }}</p>
+          </div>
+          <div class="gallery-actions">
+            <button class="ghost-action" type="button" @click="openActiveDetail">查看展品</button>
+            <button class="primary-action" type="button" @click="continueTour">继续前进</button>
+          </div>
+        </div>
+
+        <div class="route-progress" aria-label="默认游线进度">
+          <span class="route-progress-fill" :style="{ width: `${activeProgress}%` }"></span>
+        </div>
+
+        <div class="zone-rail" :class="{ 'is-open': routeMapOpen }" aria-label="展区导览">
+          <button
+            v-for="(zone, index) in zones"
+            :key="zone.category"
+            class="zone-node"
+            :class="{ 'is-active': index === activeZoneIndex, 'is-past': index < activeZoneIndex }"
+            type="button"
+            @click="goToZone(zone.category)"
+          >
+            <span>{{ String(index + 1).padStart(2, "0") }}</span>
+            <strong>{{ zone.title }}</strong>
+            <small>{{ zone.exhibits.length }} 件 / {{ zone.imageItems }} 张影像</small>
+          </button>
+        </div>
+
+      </aside>
     </div>
   </section>
 </template>

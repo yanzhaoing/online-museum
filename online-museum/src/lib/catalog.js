@@ -83,6 +83,125 @@ export function topicTitle(name) {
   }[name] || name;
 }
 
+const VIRTUAL_GALLERY_ZONES = [
+  {
+    category: "票据类",
+    title: "票据与日常流通",
+    subtitle: "民国时期各类收据、证照与票据，记录社会经济活动与民众生活。",
+    count: 6,
+    layout: "paper-wall",
+    accent: "#b8792b",
+  },
+  {
+    category: "文献类",
+    title: "文献与印刷记忆",
+    subtitle: "契约、信札、谱牒与登记材料，保留地方社会运行的文字线索。",
+    count: 5,
+    layout: "archive-wall",
+    accent: "#2f6f68",
+  },
+  {
+    category: "徽章印章类",
+    title: "徽章与印章",
+    subtitle: "徽章、奖章、印章与标识物，浓缩身份、组织和制度记忆。",
+    count: 5,
+    layout: "case",
+    accent: "#9f3f32",
+  },
+  {
+    category: "字画类",
+    title: "碑刻与书法",
+    subtitle: "拓片、题字与书写材料，在笔触、章法和石刻痕迹中呈现时间层次。",
+    count: 4,
+    layout: "dark-wall",
+    accent: "#59616c",
+  },
+  {
+    category: "器物类",
+    title: "器物与日常器用",
+    subtitle: "生活器物、纪念物与使用痕迹，让抽象记忆落到具体物件。",
+    count: 4,
+    layout: "plinth",
+    accent: "#8a6a39",
+  },
+];
+
+const LOW_PRIORITY_COLLECTORS = new Set(["给编委会的"]);
+
+export function buildVirtualGallery(source) {
+  const zones = [];
+  const route = [];
+
+  VIRTUAL_GALLERY_ZONES.forEach((zone, zoneIndex) => {
+    const selected = selectGalleryItems(source, zone.category, zone.count);
+    const enriched = selected.map((item, localIndex) => ({
+      ...item,
+      galleryZone: zone.category,
+      galleryZoneTitle: zone.title,
+      gallerySubtitle: zone.subtitle,
+      galleryAccent: zone.accent,
+      galleryLayout: zone.layout,
+      routeIndex: route.length + localIndex,
+      galleryIntro: galleryIntro(item),
+      galleryShortTitle: galleryShortTitle(item),
+    }));
+    route.push(...enriched);
+    zones.push({
+      ...zone,
+      index: zoneIndex,
+      totalItems: source.filter((item) => item.category === zone.category).length,
+      imageItems: source.filter((item) => item.category === zone.category && item.kind === "image").length,
+      exhibits: enriched,
+    });
+  });
+
+  return { zones, route, total: route.length };
+}
+
+function selectGalleryItems(source, category, limit) {
+  const seenCodes = new Set();
+  const seenCollectors = new Map();
+
+  return source
+    .filter((item) => item.category === category && item.kind === "image" && item.thumbPath)
+    .map((item, index) => ({ item, index, score: galleryCandidateScore(item, index) }))
+    .sort((a, b) => b.score - a.score || a.item.code.localeCompare(b.item.code, "zh-CN"))
+    .filter(({ item }) => {
+      const code = compactCode(item.code);
+      if (seenCodes.has(code)) return false;
+      const collectorCount = seenCollectors.get(item.collector) || 0;
+      const collectorCap = LOW_PRIORITY_COLLECTORS.has(item.collector) ? 1 : 4;
+      if (collectorCount >= collectorCap) return false;
+      seenCodes.add(code);
+      seenCollectors.set(item.collector, collectorCount + 1);
+      return true;
+    })
+    .slice(0, limit)
+    .map(({ item }) => item);
+}
+
+function galleryCandidateScore(item, index) {
+  const sizeScore = Math.min(48, Math.log10(Math.max(1, item.size || 1)) * 7);
+  const sourceScore = LOW_PRIORITY_COLLECTORS.has(item.collector) ? -16 : 10;
+  const codeScore = compactCode(item.code).length > 10 ? 8 : 0;
+  const imageScore = item.thumbPath ? 18 : 0;
+  return sizeScore + sourceScore + codeScore + imageScore + stableVariant(item, 13, index);
+}
+
+function compactCode(code) {
+  return String(code || "").replace(/\s+/g, "").toUpperCase();
+}
+
+function galleryShortTitle(item) {
+  const suffix = compactCode(item?.code).split("-").slice(-1)[0] || item?.fileName || "";
+  const title = topicTitle(item?.category || "");
+  return `${title} · ${suffix}`;
+}
+
+function galleryIntro(item) {
+  return `这件展品来自${item?.collector || "馆藏"}，编号 ${item?.code || "未编号"}。${categoryInterpretation(item)}${kindInterpretation(item)}`;
+}
+
 export function categoryInterpretation(item) {
   const copy = {
     "票据类": [

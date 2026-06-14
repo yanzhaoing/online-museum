@@ -1,6 +1,7 @@
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import {
   catalogItems,
+  buildVirtualGallery,
   countBy,
   displayTitle,
   docentText,
@@ -23,6 +24,7 @@ export function useMuseum() {
   const collectorCounts = countBy(items, "collector");
   const categoryChartEntries = topEntries(items, "category", 8);
   const collectorChartEntries = topEntries(items, "collector", 8);
+  const virtualGallery = buildVirtualGallery(items);
 
   const query = ref("");
   const category = ref(ALL);
@@ -554,6 +556,7 @@ export function useMuseum() {
     featuredItem,
     topicRoutes,
     collectorCards,
+    virtualGallery,
     viewedItems,
     recentViewedItems,
     viewedPercent,
