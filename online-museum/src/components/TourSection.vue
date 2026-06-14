@@ -12,6 +12,7 @@ const activeIndex = ref(0);
 const autoTour = ref(false);
 const orbitView = ref(false);
 const routeMapOpen = ref(false);
+const viewerMode = ref("hallway");
 const canvasReady = ref(false);
 const sceneLoading = ref(false);
 const sceneLoadLabel = ref("进入展馆时加载 3D 游览");
@@ -26,6 +27,44 @@ const previousPreviewItem = computed(() => route.value[(activeIndex.value - 1 + 
 const activeZone = computed(() => zones.value.find((zone) => zone.category === activeItem.value?.galleryZone));
 const activeProgress = computed(() => Math.round((activeIndex.value + 1) / Math.max(1, route.value.length) * 100));
 const activeZoneIndex = computed(() => Math.max(0, zones.value.findIndex((zone) => zone.category === activeItem.value?.galleryZone)));
+// Floor-plan contract: changing virtual room geometry requires updating placementFor,
+// this floor plan, tour control behavior, visual QA, and decision-log.jsonl together.
+const floorPlanStops = computed(() => route.value.map((item, index) => {
+  const placement = placementFor(item, index);
+  return {
+    index,
+    x: floorPlanX(placement),
+    y: floorPlanY(index),
+    side: placement.side,
+    title: item.galleryShortTitle,
+    zone: item.galleryZoneTitle,
+  };
+}));
+const floorPlanPathPoints = computed(() => floorPlanStops.value.map((stop) => `${stop.x},${stop.y}`).join(" "));
+const activeFloorStop = computed(() => floorPlanStops.value[activeIndex.value]);
+const floorPlanZoneBands = computed(() => zones.value.map((zone) => {
+  const startIndex = route.value.findIndex((item) => item.galleryZone === zone.category);
+  const endIndex = startIndex + zone.exhibits.length - 1;
+  return {
+    category: zone.category,
+    label: String(zone.index + 1).padStart(2, "0"),
+    title: zone.title,
+    y: floorPlanY(startIndex) - 8,
+    height: Math.max(18, floorPlanY(endIndex) - floorPlanY(startIndex) + 16),
+  };
+}));
+const activeZonePlan = computed(() => {
+  if (!activeZone.value) return "默认展线从入口进入，沿固定顺序参观。";
+  if (activeZone.value.layout === "paper-wall" || activeZone.value.layout === "archive-wall") {
+    const leftCount = wallLeftCount(activeZone.value);
+    const rightCount = activeZone.value.exhibits.length - leftCount;
+    return `本区先看左墙 ${leftCount} 件，再转右墙 ${rightCount} 件。`;
+  }
+  if (activeZone.value.layout === "dark-wall") return "本区沿右侧深色墙面顺行。";
+  if (activeZone.value.layout === "case") return "本区沿中央展柜顺行。";
+  if (activeZone.value.layout === "plinth") return "本区沿中央台座顺行。";
+  return "本区沿默认展线顺行。";
+});
 
 let renderer;
 let scene;
@@ -62,6 +101,7 @@ function setActive(index, announce = true) {
   if (!route.value.length) return;
   const next = (index + route.value.length) % route.value.length;
   activeIndex.value = next;
+  viewerMode.value = "hallway";
   const item = route.value[next];
   sceneStatus.value = `正在观看：${item.galleryShortTitle}。${item.galleryIntro}`;
   warmRouteTextures(next);
@@ -103,12 +143,21 @@ function toggleOrbit() {
   sceneStatus.value = orbitView.value ? "环视模式已开启，画面会围绕当前展品轻微移动。" : "环视模式已关闭。";
 }
 
-function nudgeLook(direction) {
+function approachActiveExhibit() {
   stopAutoTour();
-  if (direction === "left") lookOffset.yaw = Math.max(-0.52, lookOffset.yaw - 0.18);
-  if (direction === "right") lookOffset.yaw = Math.min(0.52, lookOffset.yaw + 0.18);
-  if (direction === "up") setActive(activeIndex.value + 1);
-  if (direction === "down") setActive(activeIndex.value - 1);
+  if (!activeItem.value) return;
+  viewerMode.value = "close";
+  lookOffset.yaw = 0;
+  lookOffset.pitch = 0;
+  sceneStatus.value = `已靠近展品：${activeItem.value.galleryShortTitle}`;
+}
+
+function returnToHallway() {
+  stopAutoTour();
+  viewerMode.value = "hallway";
+  lookOffset.yaw = 0;
+  lookOffset.pitch = 0;
+  sceneStatus.value = activeItem.value ? `已回到走廊，可继续选择展品：${activeItem.value.galleryShortTitle}` : "已回到走廊。";
 }
 
 function goToZone(category) {
@@ -122,6 +171,7 @@ function resetView() {
   lookOffset.yaw = 0;
   lookOffset.pitch = 0;
   orbitView.value = false;
+  viewerMode.value = "hallway";
   sceneStatus.value = "视角已回到默认游线方向。";
 }
 
@@ -320,15 +370,18 @@ function buildArchitecture() {
     addBox("skylight", [3.7, 0.05, 3.7], [0, 5.05, z - 2.8], glassMaterial);
     addBox("skylight-beam-a", [0.12, 0.16, 4.0], [-2.02, 5.12, z - 2.8], ceilingMaterial);
     addBox("skylight-beam-b", [0.12, 0.16, 4.0], [2.02, 5.12, z - 2.8], ceilingMaterial);
-    addBox("column-left", [0.34, 4.2, 0.34], [-5.35, 2.05, z - 0.2], stone);
-    addBox("column-right", [0.34, 4.2, 0.34], [5.35, 2.05, z - 0.2], stone);
+    addBox("column-left", [0.14, 4.2, 0.34], [-5.98, 2.05, z - 0.2], stone);
+    addBox("column-right", [0.14, 4.2, 0.34], [5.98, 2.05, z - 0.2], stone);
   }
 
   const pathMaterial = new THREE.MeshBasicMaterial({ color: 0xb98a36, transparent: true, opacity: 0.5 });
   for (let i = 0; i < route.value.length; i += 1) {
-    const z = exhibitZ(i);
-    addBox("route-dot", [0.34, 0.014, 0.34], [0, 0.012, z + 1.1], pathMaterial);
-    if (i < route.value.length - 1) addBox("route-line", [0.055, 0.012, 2.0], [0, 0.014, z - 0.05], pathMaterial);
+    const marker = floorRouteMarker(placementFor(route.value[i], i));
+    addBox("route-dot", [0.34, 0.014, 0.34], [marker.x, 0.012, marker.z], pathMaterial);
+    if (i < route.value.length - 1) {
+      const nextMarker = floorRouteMarker(placementFor(route.value[i + 1], i + 1));
+      addRouteSegment(marker, nextMarker, pathMaterial);
+    }
   }
 }
 
@@ -350,6 +403,17 @@ function placementFor(item, index) {
   const zone = zones.value.find((entry) => entry.category === item.galleryZone);
   const localIndex = zone?.exhibits.findIndex((entry) => entry.id === item.id) ?? 0;
   const z = exhibitZ(index);
+  if (item.galleryLayout === "paper-wall" || item.galleryLayout === "archive-wall") {
+    const left = localIndex < wallLeftCount(zone);
+    return {
+      side: left ? "left" : "right",
+      x: left ? -5.88 : 5.88,
+      y: item.galleryLayout === "archive-wall" ? 2.48 : 2.28,
+      z,
+      rotationY: left ? Math.PI / 2 : -Math.PI / 2,
+      localIndex,
+    };
+  }
   if (item.galleryLayout === "dark-wall") {
     return { side: "right", x: 5.88, y: 2.42, z, rotationY: -Math.PI / 2, localIndex };
   }
@@ -359,19 +423,41 @@ function placementFor(item, index) {
   if (item.galleryLayout === "plinth") {
     return { side: "plinth", x: localIndex % 2 ? 2.25 : -2.25, y: 1.74, z, rotationY: 0, localIndex };
   }
-  const left = index % 2 === 0;
-  return {
-    side: left ? "left" : "right",
-    x: left ? -5.88 : 5.88,
-    y: item.galleryLayout === "archive-wall" ? 2.48 : 2.28,
-    z,
-    rotationY: left ? Math.PI / 2 : -Math.PI / 2,
-    localIndex,
-  };
+  return { side: "left", x: -5.88, y: 2.28, z, rotationY: Math.PI / 2, localIndex };
 }
 
 function exhibitZ(index) {
   return -index * 2.65 - 2.1;
+}
+
+function wallLeftCount(zone) {
+  return Math.ceil((zone?.exhibits.length || 1) / 2);
+}
+
+function floorRouteMarker(placement) {
+  const x = hallwayX(placement);
+  return { x, z: placement.z + 1.1 };
+}
+
+function hallwayX(placement) {
+  if (placement.side === "left") return -0.62;
+  if (placement.side === "right") return 0.62;
+  if (placement.side === "case" || placement.side === "plinth") return placement.x * 0.22;
+  return 0;
+}
+
+function floorPlanY(index) {
+  const denominator = Math.max(1, route.value.length - 1);
+  return 24 + index / denominator * 272;
+}
+
+function floorPlanX(placement) {
+  if (placement.side === "left") return 22;
+  if (placement.side === "right") return 78;
+  if (placement.side === "case" || placement.side === "plinth") {
+    return 50 + Math.max(-12, Math.min(12, placement.x * 5));
+  }
+  return 50;
 }
 
 function addArtwork(item, placement, index) {
@@ -508,6 +594,18 @@ function addBox(name, size, position, material) {
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material);
   mesh.name = name;
   mesh.position.set(...position);
+  scene.add(mesh);
+  return mesh;
+}
+
+function addRouteSegment(from, to, material) {
+  const dx = to.x - from.x;
+  const dz = to.z - from.z;
+  const length = Math.max(0.001, Math.hypot(dx, dz));
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.012, length), material);
+  mesh.name = "route-line";
+  mesh.position.set((from.x + to.x) / 2, 0.014, (from.z + to.z) / 2);
+  mesh.rotation.y = Math.atan2(dx, dz);
   scene.add(mesh);
   return mesh;
 }
@@ -675,13 +773,23 @@ function targetPose() {
       target: new THREE.Vector3(0, 1.8, 0),
     };
   }
-  const position = new THREE.Vector3(0, 1.72, placement.z + 2.25);
-  if (placement.side === "left") position.x = -1.45;
-  if (placement.side === "right") position.x = 1.45;
-  if (placement.side === "case" || placement.side === "plinth") position.x = placement.x * 0.26;
+  const mode = viewerMode.value;
+  const isWallSide = placement.side === "left" || placement.side === "right";
+  const zOffset = mode === "close" && isWallSide ? 1.02 : mode === "close" ? 0.62 : 2.65;
+  const position = new THREE.Vector3(0, 1.72, placement.z + zOffset);
+  if (placement.side === "left") position.x = mode === "close" ? placement.x * 0.76 : -0.35;
+  if (placement.side === "right") position.x = mode === "close" ? placement.x * 0.76 : 0.35;
+  if (placement.side === "case" || placement.side === "plinth") {
+    position.x = placement.x * (mode === "close" ? 0.72 : 0.18);
+    position.z = placement.z + (mode === "close" ? 1.08 : 2.8);
+  }
   const target = new THREE.Vector3(placement.x, placement.y, placement.z);
   if (placement.side === "case") target.y = 1.08;
   if (placement.side === "plinth") target.y = 1.52;
+  if (mode === "hallway" && (placement.side === "left" || placement.side === "right")) {
+    target.x = placement.x * 0.74;
+    target.y = placement.y + 0.08;
+  }
   return { position, target };
 }
 
@@ -740,6 +848,7 @@ function disposeScene() {
 watch(activeIndex, () => {
   lookOffset.yaw = 0;
   lookOffset.pitch = 0;
+  viewerMode.value = "hallway";
 });
 
 onMounted(() => {
@@ -770,6 +879,8 @@ onBeforeUnmount(disposeScene);
         ref="viewportRef"
         class="virtual-viewport"
         :class="{ 'is-ready': canvasReady, 'is-loading': sceneLoading }"
+        :data-active-side="activeFloorStop?.side || 'unknown'"
+        :data-viewer-mode="viewerMode"
         @pointerdown="onViewportPointerDown"
         @pointermove="onViewportPointerMove"
         @pointerup="onViewportPointerUp"
@@ -814,9 +925,6 @@ onBeforeUnmount(disposeScene);
           </div>
           <button class="icon-action gallery-reset" type="button" aria-label="重置视角" title="重置视角" @click.stop="resetView">⌖</button>
         </div>
-        <button class="walk-cue" type="button" aria-label="继续前进" @click.stop="continueTour">
-          <span>↑</span>
-        </button>
         <div class="viewport-item-hud" v-if="activeItem">
           <span>{{ String(activeIndex + 1).padStart(2, "0") }} / {{ String(route.length).padStart(2, "0") }} · {{ activeZone?.title }}</span>
           <strong>{{ activeItem.galleryShortTitle }}</strong>
@@ -830,16 +938,25 @@ onBeforeUnmount(disposeScene);
           @pointercancel.stop
           @click.stop
         >
-          <button class="round-control" type="button" aria-label="后退" @click.stop="previousStop">
-            <span aria-hidden="true">↶</span>
-            <small>后退</small>
-          </button>
-          <div class="joystick" role="group" aria-label="方向控制">
-            <button class="joy-up" type="button" aria-label="前进" @click.stop="nudgeLook('up')">▲</button>
-            <button class="joy-left" type="button" aria-label="向左看" @click.stop="nudgeLook('left')">◀</button>
-            <button class="joy-center" type="button" aria-label="重置视角" @click.stop="resetView"></button>
-            <button class="joy-right" type="button" aria-label="向右看" @click.stop="nudgeLook('right')">▶</button>
-            <button class="joy-down" type="button" aria-label="后退" @click.stop="nudgeLook('down')">▼</button>
+          <div class="path-controls" role="group" aria-label="默认展线移动">
+            <button class="path-step" type="button" aria-label="上一件展品" title="上一件展品" @click.stop="previousStop">
+              <span aria-hidden="true">‹</span>
+              <small>上一件</small>
+            </button>
+            <button class="path-step is-primary" type="button" aria-label="下一件展品" title="下一件展品" @click.stop="nextStop">
+              <small>下一件</small>
+              <span aria-hidden="true">›</span>
+            </button>
+          </div>
+          <div class="distance-controls" role="group" aria-label="观看距离">
+            <button class="distance-control" type="button" aria-label="靠近当前展品" title="靠近当前展品" @click.stop="approachActiveExhibit">
+              <span aria-hidden="true">▲</span>
+              <small>靠近</small>
+            </button>
+            <button class="distance-control" type="button" aria-label="回到走廊" title="回到走廊" @click.stop="returnToHallway">
+              <span aria-hidden="true">▼</span>
+              <small>走廊</small>
+            </button>
           </div>
           <button class="round-control" type="button" :class="{ 'is-active': orbitView }" aria-label="环视" @click.stop="toggleOrbit">
             <span aria-hidden="true">◎</span>
@@ -865,6 +982,56 @@ onBeforeUnmount(disposeScene);
 
         <div class="route-progress" aria-label="默认游线进度">
           <span class="route-progress-fill" :style="{ width: `${activeProgress}%` }"></span>
+        </div>
+
+        <div class="floor-plan-card" :class="{ 'is-open': routeMapOpen }" aria-label="虚拟展馆平面图与参观线路">
+          <div class="floor-plan-copy">
+            <span>展厅平面</span>
+            <strong>入口沿左墙顺行，再转向右墙与中央展柜</strong>
+            <p>{{ activeZonePlan }}</p>
+          </div>
+          <svg class="floor-plan-map" viewBox="0 0 100 320" role="img" aria-label="虚拟展馆平面图，金色线条表示默认参观路线">
+            <rect class="floor-plan-room" x="8" y="8" width="84" height="304" rx="8"></rect>
+            <line class="floor-plan-axis" x1="50" y1="18" x2="50" y2="302"></line>
+            <text class="floor-plan-label" x="50" y="20" text-anchor="middle">入口</text>
+            <text class="floor-plan-label" x="50" y="308" text-anchor="middle">尾厅</text>
+            <g class="floor-plan-zones">
+              <rect
+                v-for="band in floorPlanZoneBands"
+                :key="band.category"
+                x="11"
+                :y="band.y"
+                width="78"
+                :height="band.height"
+                rx="5"
+              ></rect>
+            </g>
+            <polyline class="floor-plan-path" :points="floorPlanPathPoints"></polyline>
+            <g class="floor-plan-stops">
+              <circle
+                v-for="stop in floorPlanStops"
+                :key="stop.index"
+                :class="{ 'is-active': stop.index === activeIndex, 'is-past': stop.index < activeIndex }"
+                :cx="stop.x"
+                :cy="stop.y"
+                :r="stop.index === activeIndex ? 5 : 3.5"
+                tabindex="0"
+                role="button"
+                :aria-label="`跳转到 ${stop.title}`"
+                @click="setActive(stop.index)"
+                @keydown.enter.prevent="setActive(stop.index)"
+                @keydown.space.prevent="setActive(stop.index)"
+              ></circle>
+            </g>
+            <g class="floor-plan-band-labels">
+              <text
+                v-for="band in floorPlanZoneBands"
+                :key="`${band.category}-label`"
+                x="14"
+                :y="band.y + 12"
+              >{{ band.label }}</text>
+            </g>
+          </svg>
         </div>
 
         <div class="zone-rail" :class="{ 'is-open': routeMapOpen }" aria-label="展区导览">

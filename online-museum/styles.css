@@ -1342,33 +1342,6 @@ h1 {
   backdrop-filter: blur(12px);
 }
 
-.walk-cue {
-  position: absolute;
-  left: 50%;
-  top: 52%;
-  z-index: 4;
-  display: grid;
-  place-items: center;
-  width: 62px;
-  height: 62px;
-  border: 1px solid rgba(255, 247, 233, 0.54);
-  border-radius: 50%;
-  background: rgba(185, 138, 54, 0.28);
-  color: #fff8e7;
-  box-shadow:
-    0 18px 48px rgba(0, 0, 0, 0.22),
-    inset 0 0 24px rgba(255, 247, 233, 0.24);
-  transform: translate(-50%, -50%);
-  cursor: pointer;
-  backdrop-filter: blur(10px);
-}
-
-.walk-cue span {
-  font-size: 32px;
-  line-height: 1;
-  transform: translateY(-2px);
-}
-
 .gallery-info {
   display: grid;
   gap: 12px;
@@ -1408,6 +1381,24 @@ h1 {
 .viewport-item-hud strong {
   margin-top: 4px;
   font-size: 18px;
+}
+
+.virtual-viewport[data-viewer-mode="close"] .viewport-item-hud {
+  top: 82px;
+  right: auto;
+  bottom: auto;
+  max-width: min(300px, calc(100% - 36px));
+  padding: 9px 11px;
+  border-radius: 13px;
+  background: rgba(24, 22, 19, 0.5);
+}
+
+.virtual-viewport[data-viewer-mode="close"] .viewport-item-hud span {
+  font-size: 11px;
+}
+
+.virtual-viewport[data-viewer-mode="close"] .viewport-item-hud strong {
+  font-size: 15px;
 }
 
 .gallery-card {
@@ -1497,6 +1488,123 @@ h1 {
   transition: width 360ms ease;
 }
 
+.floor-plan-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 126px;
+  gap: 12px;
+  align-items: stretch;
+  padding: 12px;
+  border: 1px solid rgba(138, 106, 57, 0.28);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(255, 252, 244, 0.88), rgba(238, 229, 212, 0.72)),
+    color-mix(in srgb, var(--panel) 88%, var(--paper));
+  box-shadow: 0 18px 50px rgba(30, 27, 22, 0.12);
+}
+
+.floor-plan-copy {
+  min-width: 0;
+  align-self: center;
+}
+
+.floor-plan-copy span,
+.floor-plan-copy strong,
+.floor-plan-copy p {
+  display: block;
+}
+
+.floor-plan-copy span {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.floor-plan-copy strong {
+  margin-top: 5px;
+  font-size: 15px;
+  line-height: 1.28;
+}
+
+.floor-plan-copy p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.floor-plan-map {
+  width: 100%;
+  height: 190px;
+  overflow: visible;
+}
+
+.floor-plan-room {
+  fill: rgba(250, 244, 232, 0.78);
+  stroke: rgba(76, 65, 48, 0.32);
+  stroke-width: 1;
+}
+
+.floor-plan-axis {
+  stroke: rgba(76, 65, 48, 0.16);
+  stroke-width: 0.8;
+  stroke-dasharray: 2.5 3.5;
+}
+
+.floor-plan-label {
+  fill: rgba(57, 49, 38, 0.64);
+  font-size: 6px;
+  font-weight: 800;
+}
+
+.floor-plan-zones rect {
+  fill: rgba(185, 138, 54, 0.08);
+  stroke: rgba(138, 106, 57, 0.1);
+  stroke-width: 0.6;
+}
+
+.floor-plan-zones rect:nth-child(even) {
+  fill: rgba(47, 111, 104, 0.07);
+}
+
+.floor-plan-path {
+  fill: none;
+  stroke: #b98a36;
+  stroke-width: 2.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 2px 2px rgba(80, 58, 26, 0.22));
+}
+
+.floor-plan-stops circle {
+  fill: #fff7e9;
+  stroke: #8a6a39;
+  stroke-width: 1.2;
+  cursor: pointer;
+  transition: fill 160ms ease, r 160ms ease, stroke-width 160ms ease;
+}
+
+.floor-plan-stops circle.is-past {
+  fill: #d7b56d;
+}
+
+.floor-plan-stops circle.is-active {
+  fill: #2f6f68;
+  stroke: #fff7e9;
+  stroke-width: 1.8;
+}
+
+.floor-plan-stops circle:focus-visible {
+  outline: none;
+  stroke: #1d211d;
+  stroke-width: 2;
+}
+
+.floor-plan-band-labels text {
+  fill: rgba(57, 49, 38, 0.58);
+  font-size: 6px;
+  font-weight: 900;
+}
+
 .zone-rail {
   display: grid;
   grid-template-columns: repeat(5, minmax(108px, 1fr));
@@ -1553,13 +1661,95 @@ h1 {
   bottom: 18px;
   z-index: 5;
   display: grid;
-  grid-template-columns: 78px minmax(152px, 1fr) 78px;
+  grid-template-columns: minmax(0, 1fr) 104px 78px;
   align-items: center;
   gap: 14px;
   justify-items: center;
-  width: min(438px, calc(100% - 34px));
+  width: min(540px, calc(100% - 34px));
   padding: 8px 0 2px;
   transform: translateX(-50%);
+}
+
+.path-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+
+.path-step,
+.distance-control {
+  border: 1px solid rgba(255, 247, 233, 0.26);
+  background:
+    linear-gradient(180deg, rgba(52, 47, 39, 0.86), rgba(23, 21, 18, 0.88)),
+    #26231e;
+  color: #fff7e9;
+  cursor: pointer;
+  box-shadow: 0 18px 42px rgba(26, 24, 20, 0.24);
+}
+
+.path-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 0;
+  min-height: 58px;
+  padding: 0 12px;
+  border-radius: 999px;
+}
+
+.path-step span {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.path-step small,
+.distance-control small,
+.round-control small {
+  color: rgba(255, 247, 233, 0.72);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.path-step.is-primary {
+  border-color: color-mix(in srgb, var(--gold) 72%, rgba(255, 247, 233, 0.26));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--gold) 42%, #342f27), #201b15),
+    #26231e;
+}
+
+.path-step:hover,
+.path-step:focus-visible,
+.distance-control:hover,
+.distance-control:focus-visible,
+.round-control:hover,
+.round-control:focus-visible {
+  border-color: var(--gold);
+  color: #fff7e9;
+}
+
+.distance-controls {
+  display: grid;
+  gap: 8px;
+  width: 104px;
+}
+
+.distance-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 33px;
+  padding: 0 9px;
+  border-radius: 999px;
+}
+
+.distance-control span {
+  font-size: 13px;
+  line-height: 1;
 }
 
 .round-control {
@@ -1582,84 +1772,9 @@ h1 {
   line-height: 1;
 }
 
-.round-control small {
-  color: rgba(255, 247, 233, 0.72);
-  font-size: 12px;
-}
-
 .round-control.is-active {
   border-color: var(--gold);
   background: linear-gradient(180deg, color-mix(in srgb, var(--gold) 44%, #32281e), #201b15);
-}
-
-.joystick {
-  position: relative;
-  width: 156px;
-  height: 156px;
-  border: 1px solid rgba(255, 247, 233, 0.24);
-  border-radius: 50%;
-  background:
-    radial-gradient(circle, rgba(185, 138, 54, 0.38) 0 26%, rgba(255, 247, 233, 0.12) 27% 28%, transparent 29%),
-    linear-gradient(180deg, rgba(58, 52, 43, 0.86), rgba(20, 18, 16, 0.88));
-  box-shadow:
-    0 24px 58px rgba(26, 24, 20, 0.32),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.08);
-}
-
-.joystick button {
-  position: absolute;
-  z-index: 2;
-  display: grid;
-  place-items: center;
-  width: 42px;
-  height: 42px;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  color: rgba(255, 247, 233, 0.82);
-  cursor: pointer;
-  font-size: 17px;
-}
-
-.joystick button:hover,
-.joystick button:focus-visible {
-  background: rgba(255, 247, 233, 0.12);
-  color: #fff7e9;
-}
-
-.joy-up {
-  top: 2px;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.joy-down {
-  bottom: 2px;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.joy-left {
-  top: 50%;
-  left: 2px;
-  transform: translateY(-50%);
-}
-
-.joy-right {
-  top: 50%;
-  right: 2px;
-  transform: translateY(-50%);
-}
-
-.joy-center {
-  z-index: 1 !important;
-  top: 50%;
-  left: 50%;
-  width: 58px !important;
-  height: 58px !important;
-  border: 1px solid rgba(255, 247, 233, 0.34) !important;
-  background: radial-gradient(circle, #c7a068, #8a6a39) !important;
-  transform: translate(-50%, -50%);
 }
 
 .stage::before {
@@ -3173,35 +3288,72 @@ h1 {
     display: none;
   }
 
+  .floor-plan-card {
+    display: none;
+    grid-template-columns: 1fr;
+  }
+
+  .floor-plan-card.is-open {
+    display: grid;
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    z-index: 70;
+    grid-template-columns: minmax(0, 1fr) 118px;
+    max-height: min(64vh, 520px);
+    overflow: auto;
+    box-shadow: 0 28px 90px rgba(20, 18, 15, 0.34);
+  }
+
+  .floor-plan-map {
+    height: 200px;
+  }
+
   .zone-rail.is-open {
     display: grid;
     grid-template-columns: repeat(5, 128px);
   }
 
   .phone-controls {
-    grid-template-columns: 64px minmax(132px, 1fr) 64px;
+    grid-template-columns: minmax(0, 1fr) 84px 62px;
     gap: 8px;
     bottom: 12px;
+  }
+
+  .path-controls {
+    gap: 6px;
+  }
+
+  .path-step {
+    gap: 5px;
+    min-height: 54px;
+    padding: 0 8px;
+  }
+
+  .path-step span {
+    font-size: 22px;
+  }
+
+  .path-step small,
+  .distance-control small,
+  .round-control small {
+    font-size: 11px;
+  }
+
+  .distance-controls {
+    width: 84px;
+    gap: 6px;
+  }
+
+  .distance-control {
+    min-height: 30px;
+    padding: 0 6px;
   }
 
   .round-control {
     width: 62px;
     height: 62px;
-  }
-
-  .joystick {
-    width: 136px;
-    height: 136px;
-  }
-
-  .joystick button {
-    width: 36px;
-    height: 36px;
-  }
-
-  .joy-center {
-    width: 50px !important;
-    height: 50px !important;
   }
 }
 
@@ -3233,10 +3385,5 @@ h1 {
 
   .gallery-card img {
     width: 82px;
-  }
-
-  .walk-cue {
-    width: 54px;
-    height: 54px;
   }
 }
