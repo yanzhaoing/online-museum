@@ -1044,9 +1044,9 @@ h1 {
   content: "";
   position: absolute;
   inset: auto 0 0;
-  height: 34%;
+  height: 28%;
   pointer-events: none;
-  background: linear-gradient(180deg, transparent, rgba(5, 5, 4, 0.58));
+  background: linear-gradient(180deg, transparent, rgba(12, 10, 8, 0.34));
   z-index: 2;
 }
 
@@ -3191,10 +3191,6 @@ h1 {
   .virtual-viewport {
     min-height: 430px;
     height: 52vh;
-  }
-
-  .viewport-item-hud {
-    display: block;
   }
 }
 
