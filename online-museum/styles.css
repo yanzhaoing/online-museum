@@ -1044,9 +1044,9 @@ h1 {
   content: "";
   position: absolute;
   inset: auto 0 0;
-  height: 44%;
+  height: 34%;
   pointer-events: none;
-  background: linear-gradient(180deg, transparent, rgba(5, 5, 4, 0.86));
+  background: linear-gradient(180deg, transparent, rgba(5, 5, 4, 0.58));
   z-index: 2;
 }
 
@@ -1384,21 +1384,7 @@ h1 {
 }
 
 .virtual-viewport[data-viewer-mode="close"] .viewport-item-hud {
-  top: 82px;
-  right: auto;
-  bottom: auto;
-  max-width: min(300px, calc(100% - 36px));
-  padding: 9px 11px;
-  border-radius: 13px;
-  background: rgba(24, 22, 19, 0.5);
-}
-
-.virtual-viewport[data-viewer-mode="close"] .viewport-item-hud span {
-  font-size: 11px;
-}
-
-.virtual-viewport[data-viewer-mode="close"] .viewport-item-hud strong {
-  font-size: 15px;
+  display: none;
 }
 
 .gallery-card {

@@ -1,5 +1,6 @@
 const { spawn } = require("node:child_process");
 const { existsSync, mkdirSync, writeFileSync } = require("node:fs");
+const { tmpdir } = require("node:os");
 const { join, resolve } = require("node:path");
 const { setTimeout: delay } = require("node:timers/promises");
 
@@ -7,6 +8,9 @@ const ROOT = resolve(__dirname, "..", "..");
 const OUT_DIR = join(ROOT, "qa-screenshots");
 const CHROME_CANDIDATES = [
   process.env.CHROME_PATH,
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+  "/Applications/Chromium.app/Contents/MacOS/Chromium",
   "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
   "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
   "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
@@ -97,14 +101,93 @@ async function evaluate(cdp, expression) {
   return result.result.value;
 }
 
+async function waitFor(cdp, expression, timeout = 15000) {
+  const startedAt = Date.now();
+  let lastValue = null;
+  while (Date.now() - startedAt < timeout) {
+    lastValue = await evaluate(cdp, expression).catch((error) => ({ error: error.message }));
+    if (lastValue) return lastValue;
+    await delay(200);
+  }
+  throw new Error(`Timed out waiting for: ${expression}\nLast value: ${JSON.stringify(lastValue)}`);
+}
+
+async function clickButton(cdp, label) {
+  const clicked = await evaluate(cdp, `(() => {
+    const button = [...document.querySelectorAll("button")].find((node) =>
+      node.getAttribute("aria-label") === ${JSON.stringify(label)} ||
+      node.textContent.replace(/\\s+/g, "").includes(${JSON.stringify(label.replace(/\s+/g, ""))})
+    );
+    if (!button) return false;
+    button.click();
+    return true;
+  })()`);
+  if (!clicked) throw new Error(`Could not find button: ${label}`);
+}
+
+async function waitForGalleryReady(cdp) {
+  await waitFor(cdp, `document.querySelector(".virtual-viewport") && window.__museumGalleryQa`, 10000);
+  await waitFor(cdp, `(() => {
+    const state = window.__museumGalleryQa?.getState?.();
+    return state && (state.ready || state.webglFailed);
+  })()`, 25000);
+  const galleryState = await evaluate(cdp, `window.__museumGalleryQa.getState()`);
+  assertQa(!galleryState.webglFailed, "Virtual gallery visual QA requires WebGL; fallback view was rendered.", galleryState);
+  return galleryState;
+}
+
+async function moveAlongPathToSide(cdp, side, maxSteps = 30) {
+  for (let step = 0; step <= maxSteps; step += 1) {
+    const state = await evaluate(cdp, `window.__museumGalleryQa.getState()`);
+    if (state.activeSide === side) return { state, steps: step };
+    await clickButton(cdp, "下一件展品");
+    await delay(950);
+  }
+  const state = await evaluate(cdp, `window.__museumGalleryQa.getState()`);
+  throw new Error(`Could not reach ${side} exhibits along the default path.\n${JSON.stringify(state, null, 2)}`);
+}
+
+function assertQa(condition, message, context = {}) {
+  if (condition) return;
+  const details = Object.keys(context).length ? `\n${JSON.stringify(context, null, 2)}` : "";
+  throw new Error(`${message}${details}`);
+}
+
+function activeArtworkEvidenceExpression() {
+  return `(() => {
+    const qa = window.__museumGalleryQa;
+    const projection = qa?.getActiveArtworkProjection?.();
+    const state = qa?.getState?.();
+    const canvas = document.querySelector(".virtual-canvas");
+    if (!qa || !projection?.ready || !canvas) {
+      return { ready: false, reason: "QA projection or canvas missing", state, projection };
+    }
+
+    return {
+      ready: true,
+      state,
+      projection,
+      reviewChecklist: [
+        "current exhibit image is visible after clicking 靠近",
+        "no pilaster, wall edge, HUD, or control blocks the exhibit body",
+        "frame remains rectangular enough for a museum close-up view",
+        "image is not stretched, crushed, blank, or visually misshapen",
+      ],
+    };
+  })()`;
+}
+
 async function main() {
   mkdirSync(OUT_DIR, { recursive: true });
   const chrome = findChrome();
   const url = fileUrl(join(ROOT, "dist", "online-museum", "index.html"));
-  const userDataDir = join(process.env.TEMP || "C:\\tmp", `museum-chrome-${Date.now()}`);
+  const galleryQaUrl = `${url}?qa=1#hall`;
+  const userDataDir = join(process.env.TEMP || process.env.TMPDIR || tmpdir(), `museum-chrome-${Date.now()}`);
   const child = spawn(chrome, [
     "--headless=new",
-    "--disable-gpu",
+    "--enable-webgl",
+    "--use-gl=swiftshader",
+    "--enable-unsafe-swiftshader",
     "--allow-file-access-from-files",
     "--remote-debugging-port=0",
     `--user-data-dir=${userDataDir}`,
@@ -127,6 +210,16 @@ async function main() {
     stats: [...document.querySelectorAll(".hero-stats strong")].map((node) => node.textContent.trim())
   })`));
   const desktop = await capture(cdp, "desktop-hero");
+
+  await cdp.send("Page.navigate", { url: galleryQaUrl });
+  await waitFor(cdp, `document.querySelector("#hall")`, 5000);
+  await evaluate(cdp, `document.querySelector("#hall").scrollIntoView({ block: "start" })`);
+  await waitForGalleryReady(cdp);
+  await delay(1600);
+  const desktopGallery = await capture(cdp, "desktop-gallery");
+
+  await cdp.send("Page.navigate", { url });
+  await delay(1200);
 
   await evaluate(cdp, `window.scrollTo(0, document.querySelector("#catalog").offsetTop - 90)`);
   await delay(500);
@@ -170,9 +263,44 @@ async function main() {
   })`));
   const mobile = await capture(cdp, "mobile-hero");
 
+  await cdp.send("Page.navigate", { url: galleryQaUrl });
+  await waitFor(cdp, `document.querySelector("#hall")`, 5000);
+  await evaluate(cdp, `document.querySelector("#hall").scrollIntoView({ block: "start" })`);
+  await waitForGalleryReady(cdp);
+
+  await clickButton(cdp, "下一件展品");
+  await delay(950);
+  await clickButton(cdp, "下一件展品");
+  await delay(950);
+  await clickButton(cdp, "靠近当前展品");
+  await delay(2300);
+
+  const closeArtwork = await evaluate(cdp, activeArtworkEvidenceExpression());
+  checks.push({ closeArtworkEvidence: closeArtwork });
+  const closeExhibit = await capture(cdp, "mobile-close-exhibit");
+  assertQa(closeArtwork.ready, "Close-up artwork evidence could not be read.", closeArtwork);
+  assertQa(closeArtwork.state.viewerMode === "close", "Close-up artwork QA did not enter close viewing mode.", closeArtwork);
+  assertQa(closeArtwork.state.activeTitle.includes("0010"), "Close-up artwork QA did not reach the known pilaster-regression exhibit.", closeArtwork);
+
+  await clickButton(cdp, "回到走廊");
+  await delay(900);
+  const caseMove = await moveAlongPathToSide(cdp, "case");
+  checks.push({ casePathMove: caseMove });
+  await clickButton(cdp, "靠近当前展品");
+  await delay(2300);
+  const closeCaseArtwork = await evaluate(cdp, activeArtworkEvidenceExpression());
+  checks.push({ closeCaseArtworkEvidence: closeCaseArtwork });
+  const closeCase = await capture(cdp, "mobile-close-case");
+  assertQa(closeCaseArtwork.ready, "Display-case close-up evidence could not be read.", closeCaseArtwork);
+  assertQa(closeCaseArtwork.state.viewerMode === "close", "Display-case QA did not enter close viewing mode.", closeCaseArtwork);
+  assertQa(closeCaseArtwork.state.activeSide === "case", "Display-case QA did not stay on a case exhibit.", closeCaseArtwork);
+
   cdp.close();
   child.kill();
-  console.log(JSON.stringify({ screenshots: { desktop, catalog, detail, stories, mobile }, checks }, null, 2));
+  console.log(JSON.stringify({
+    screenshots: { desktop, desktopGallery, catalog, detail, stories, mobile, closeExhibit, closeCase },
+    checks,
+  }, null, 2));
 }
 
 main().catch((error) => {
