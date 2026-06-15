@@ -211,6 +211,31 @@ async function main() {
   })`));
   const desktop = await capture(cdp, "desktop-hero");
 
+  await evaluate(cdp, `(() => {
+    const topicButton = [...document.querySelectorAll(".topic-route")]
+      .find((node) => node.textContent.includes("文献类"));
+    topicButton?.click();
+    return Boolean(topicButton);
+  })()`);
+  await waitFor(cdp, `location.hash === "#hall"`, 5000);
+  await waitFor(cdp, `(() => {
+    const lead = document.querySelector(".virtual-heading > div > p:not(.eyebrow)")?.textContent || "";
+    const mode = document.querySelector(".tour-controls button")?.textContent || "";
+    return lead.includes("类别：文献类") && mode.includes("专题路线");
+  })()`, 5000);
+  const topicRouteState = await evaluate(cdp, `(() => ({
+    hash: location.hash,
+    heading: document.querySelector(".virtual-heading > div > p:not(.eyebrow)")?.textContent.trim() || "",
+    mode: document.querySelector(".tour-controls button")?.textContent.trim() || "",
+    hud: document.querySelector(".viewport-item-hud span")?.textContent.trim() || "",
+    activeTitle: document.querySelector(".viewport-item-hud strong")?.textContent.trim() || "",
+    toast: document.querySelector(".tour-toast")?.textContent.trim() || ""
+  }))()`);
+  checks.push({ topicRouteState });
+  assertQa(topicRouteState.hash === "#hall", "Topic route click did not navigate to the virtual gallery.", topicRouteState);
+  assertQa(topicRouteState.mode.includes("专题路线"), "Topic route click did not switch the gallery mode label.", topicRouteState);
+  assertQa(topicRouteState.heading.includes("类别：文献类"), "Topic route click did not generate a filtered gallery route.", topicRouteState);
+
   await cdp.send("Page.navigate", { url: galleryQaUrl });
   await waitFor(cdp, `document.querySelector("#hall")`, 5000);
   await evaluate(cdp, `document.querySelector("#hall").scrollIntoView({ block: "start" })`);

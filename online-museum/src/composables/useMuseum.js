@@ -111,6 +111,11 @@ export function useMuseum() {
       count: categoryCounts[name],
       sample: items.find((item) => item.category === name),
     })));
+  const activeVirtualGallery = computed(() => {
+    if (!activeFilters.value.length) return virtualGallery;
+    const filteredGallery = buildVirtualGallery(filteredItems.value);
+    return filteredGallery.route.length ? filteredGallery : virtualGallery;
+  });
 
   const collectorCards = computed(() => topEntries(items, "collector", 8).map(([name, total]) => {
     const collectorItems = items.filter((item) => item.collector === name);
@@ -375,6 +380,7 @@ export function useMuseum() {
     visibleLimit.value = view.value === "table" ? 220 : 84;
     stopAutoTour();
     makeTour(visualFirst(filteredItems.value));
+    showToast(`已切换至「${topicTitle(name)}」专题路线`);
     goToHall();
   }
 
@@ -555,6 +561,7 @@ export function useMuseum() {
     searchSuggestions,
     featuredItem,
     topicRoutes,
+    activeVirtualGallery,
     collectorCards,
     virtualGallery,
     viewedItems,

@@ -40,7 +40,7 @@ function resetMediaTilt() {
     </div>
     <div class="hero-copy">
       <p class="eyebrow">民间藏品数字展厅</p>
-      <h1 id="heroTitle">把散落民间的物证，组织成可进入、可浏览、可追溯的线上展厅。</h1>
+      <h1 id="heroTitle">把散落民间的藏品，组织成可进入、可浏览、可追溯的线上展厅。</h1>
       <p>
         围绕本地馆藏档案建立数字展线，支持按藏家、类别、文件形态与关键词检索，
         并以沉浸展厅、专题路线和细节查看串联完整观展体验。

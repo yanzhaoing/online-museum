@@ -3,7 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import { useMuseumContext } from "../composables/useMuseumContext";
 import { displayTitle, fileUrl, previewPath } from "../lib/catalog";
 
-const { virtualGallery, openDetail, showToast } = useMuseumContext();
+const { virtualGallery, activeVirtualGallery, activeFilters, filteredItems, openDetail, showToast } = useMuseumContext();
 
 const sectionRef = ref(null);
 const canvasRef = ref(null);
@@ -18,16 +18,27 @@ const sceneLoading = ref(false);
 const sceneLoadLabel = ref("进入展馆时加载 3D 游览");
 const sceneLoadProgress = ref(6);
 const webglFailed = ref(false);
-const sceneStatus = ref("拖动屏幕环顾展厅，使用底部控件沿默认游线移动。");
+const sceneStatus = ref("拖动屏幕环顾展厅，使用底部控件沿当前游线移动。");
 const galleryQaEnabled = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("qa");
 
-const route = computed(() => virtualGallery.route);
-const zones = computed(() => virtualGallery.zones.filter((zone) => zone.exhibits.length));
+const gallery = computed(() => activeVirtualGallery.value || virtualGallery);
+const route = computed(() => gallery.value.route);
+const zones = computed(() => gallery.value.zones.filter((zone) => zone.exhibits.length));
+const isFilteredRoute = computed(() => activeFilters.value.length > 0);
+const routeModeLabel = computed(() => isFilteredRoute.value ? "专题路线" : "默认游线");
+const routeFilterLabel = computed(() => activeFilters.value.join(" / "));
+const galleryLead = computed(() => {
+  if (!isFilteredRoute.value) {
+    return `从 ${virtualGallery.total} 件精选展品进入五个展区，按默认游线完成一次手机端沉浸参观。`;
+  }
+  return `已根据${routeFilterLabel.value}，从 ${filteredItems.value.length.toLocaleString("zh-CN")} 件匹配藏品中生成 ${route.value.length} 件专题路线。`;
+});
 const activeItem = computed(() => route.value[activeIndex.value]);
 const previousPreviewItem = computed(() => route.value[(activeIndex.value - 1 + route.value.length) % Math.max(1, route.value.length)]);
 const activeZone = computed(() => zones.value.find((zone) => zone.category === activeItem.value?.galleryZone));
-const activeProgress = computed(() => Math.round((activeIndex.value + 1) / Math.max(1, route.value.length) * 100));
+const activeProgress = computed(() => route.value.length ? Math.round((activeIndex.value + 1) / route.value.length * 100) : 0);
 const activeZoneIndex = computed(() => Math.max(0, zones.value.findIndex((zone) => zone.category === activeItem.value?.galleryZone)));
+const routeSignature = computed(() => route.value.map((item) => item.id).join("|"));
 // Floor-plan contract: changing virtual room geometry requires updating placementFor,
 // this floor plan, tour control behavior, visual QA, and decision-log.jsonl together.
 const floorPlanStops = computed(() => route.value.map((item, index) => {
@@ -145,7 +156,7 @@ function toggleAutoTour() {
     return;
   }
   autoTour.value = true;
-  sceneStatus.value = "默认游线自动前进中。";
+  sceneStatus.value = `${routeModeLabel.value}自动前进中。`;
   autoTimer = window.setInterval(() => setActive(activeIndex.value + 1, false), 4800);
 }
 
@@ -190,7 +201,7 @@ function resetView() {
   lookOffset.pitch = 0;
   orbitView.value = false;
   viewerMode.value = "hallway";
-  sceneStatus.value = "视角已回到默认游线方向。";
+  sceneStatus.value = `视角已回到${routeModeLabel.value}方向。`;
 }
 
 function openActiveDetail() {
@@ -233,6 +244,12 @@ async function loadThreeModule() {
 
 function scheduleSceneStart() {
   if (sceneStarted || !sectionRef.value) return;
+  if (!route.value.length) {
+    sceneLoading.value = false;
+    canvasReady.value = false;
+    sceneStatus.value = "当前筛选没有可进入展厅的影像展品。";
+    return;
+  }
   sceneLoading.value = true;
   sceneLoadLabel.value = "靠近展馆时加载 3D 游览";
   sceneLoadProgress.value = 6;
@@ -259,7 +276,7 @@ function activateFallbackGallery() {
   canvasReady.value = true;
   sceneLoading.value = false;
   sceneLoadProgress.value = 100;
-  sceneStatus.value = "当前浏览器使用轻量展馆视图，可继续按默认游线参观。";
+  sceneStatus.value = `当前浏览器使用轻量展馆视图，可继续按${routeModeLabel.value}参观。`;
   nextTick(() => setActive(0, false));
 }
 
@@ -287,7 +304,13 @@ function createGalleryRenderer(canvas) {
 }
 
 async function initScene() {
-  if (sceneStarted || !canvasRef.value || !viewportRef.value || !route.value.length) return;
+  if (sceneStarted || !canvasRef.value || !viewportRef.value) return;
+  if (!route.value.length) {
+    sceneLoading.value = false;
+    canvasReady.value = false;
+    sceneStatus.value = "当前筛选没有可进入展厅的影像展品。";
+    return;
+  }
   sceneStarted = true;
   const loadingStartedAt = performance.now();
   sceneLoading.value = true;
@@ -1295,17 +1318,22 @@ function animate() {
   animationFrame = window.requestAnimationFrame(animate);
 }
 
-function disposeScene() {
-  isDisposed = true;
+function disposeScene({ permanent = true } = {}) {
+  if (permanent) isDisposed = true;
   stopAutoTour();
   if (animationFrame) window.cancelAnimationFrame(animationFrame);
+  animationFrame = 0;
   sceneObserver?.disconnect();
+  sceneObserver = null;
   resizeObserver?.disconnect();
+  resizeObserver = null;
   texturePromises.clear();
   textureCache.forEach((texture) => texture.dispose());
   textureCache.clear();
   placeholderTextureCache.forEach((texture) => texture.dispose());
   placeholderTextureCache.clear();
+  materialTextureCache.forEach((texture) => texture.dispose());
+  materialTextureCache.clear();
   if (scene) {
     scene.traverse((object) => {
       object.geometry?.dispose?.();
@@ -1314,6 +1342,17 @@ function disposeScene() {
     });
   }
   renderer?.dispose?.();
+  renderer = null;
+  scene = null;
+  camera = null;
+  textureLoader = null;
+  routeGroup = null;
+  cameraPosition = null;
+  cameraLookTarget = null;
+  sceneStarted = false;
+  canvasReady.value = false;
+  sceneLoading.value = false;
+  webglFailed.value = false;
   interactives.length = 0;
   artworkMaterials.clear();
   artworkMeshes.clear();
@@ -1324,6 +1363,30 @@ watch(activeIndex, () => {
   lookOffset.yaw = 0;
   lookOffset.pitch = 0;
   viewerMode.value = "hallway";
+});
+
+watch(routeSignature, async (nextSignature, previousSignature) => {
+  if (nextSignature === previousSignature) return;
+  stopAutoTour();
+  activeIndex.value = 0;
+  routeMapOpen.value = false;
+  orbitView.value = false;
+  viewerMode.value = "hallway";
+  lookOffset.yaw = 0;
+  lookOffset.pitch = 0;
+
+  if (!route.value.length) {
+    disposeScene({ permanent: false });
+    sceneStatus.value = "当前筛选没有可进入展厅的影像展品。";
+    return;
+  }
+
+  sceneStatus.value = `已切换到${routeModeLabel.value}：${route.value[0].galleryShortTitle}`;
+  if (sceneStarted || canvasReady.value || webglFailed.value) {
+    disposeScene({ permanent: false });
+    await nextTick();
+    scheduleSceneStart();
+  }
 });
 
 onMounted(() => {
@@ -1343,11 +1406,11 @@ onBeforeUnmount(() => {
       <div>
         <p class="eyebrow">Virtual Gallery</p>
         <h2 id="virtualGalleryTitle">虚拟展馆</h2>
-        <p>从 {{ virtualGallery.total }} 件精选展品进入五个展区，按默认游线完成一次手机端沉浸参观。</p>
+        <p>{{ galleryLead }}</p>
       </div>
       <div class="tour-controls" aria-label="虚拟展馆控制">
         <button class="ghost-action" type="button" :class="{ 'is-live': autoTour }" @click="toggleAutoTour">
-          {{ autoTour ? "暂停游线" : "默认游线" }}
+          {{ autoTour ? "暂停游线" : routeModeLabel }}
         </button>
         <button class="ghost-action" type="button" @click="routeMapOpen = !routeMapOpen">导览图</button>
       </div>
@@ -1400,7 +1463,7 @@ onBeforeUnmount(() => {
         <div class="gallery-screen-top">
           <div>
             <strong>民间收藏博物馆</strong>
-            <span>{{ activeZone?.title || "默认游线" }}</span>
+            <span>{{ activeZone?.title || routeModeLabel }}</span>
           </div>
           <button class="icon-action gallery-reset" type="button" aria-label="重置视角" title="重置视角" @click.stop="resetView">⌖</button>
         </div>
@@ -1417,7 +1480,7 @@ onBeforeUnmount(() => {
           @pointercancel.stop
           @click.stop
         >
-          <div class="path-controls" role="group" aria-label="默认展线移动">
+          <div class="path-controls" role="group" :aria-label="`${routeModeLabel}移动`">
             <button class="path-step" type="button" aria-label="上一件展品" title="上一件展品" @click.stop="previousStop">
               <span aria-hidden="true">‹</span>
               <small>上一件</small>
@@ -1459,7 +1522,7 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div class="route-progress" aria-label="默认游线进度">
+        <div class="route-progress" :aria-label="`${routeModeLabel}进度`">
           <span class="route-progress-fill" :style="{ width: `${activeProgress}%` }"></span>
         </div>
 
