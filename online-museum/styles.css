@@ -1176,133 +1176,6 @@ h1 {
   }
 }
 
-.fallback-gallery-scene {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  overflow: hidden;
-  background:
-    linear-gradient(110deg, rgba(61, 56, 47, 0.46) 0 32%, transparent 32%),
-    linear-gradient(180deg, #d9cfbd 0 58%, #a99c84 58% 76%, #403b33 100%);
-  perspective: 900px;
-}
-
-.fallback-skylight {
-  position: absolute;
-  left: 34%;
-  top: -3%;
-  width: 32%;
-  height: 28%;
-  border: 1px solid rgba(255, 255, 255, 0.36);
-  background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.52), transparent 22% 78%, rgba(255, 255, 255, 0.4)),
-    linear-gradient(180deg, #b8d0dc, #fff7e2);
-  transform: perspective(420px) rotateX(58deg);
-  transform-origin: top center;
-  opacity: 0.72;
-}
-
-.fallback-wall-sign {
-  position: absolute;
-  left: 28px;
-  top: 78px;
-  z-index: 2;
-  width: min(320px, calc(100% - 56px));
-  color: rgba(255, 247, 233, 0.92);
-  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.28);
-}
-
-.fallback-wall-sign strong,
-.fallback-wall-sign span {
-  display: block;
-}
-
-.fallback-wall-sign strong {
-  font-size: 26px;
-}
-
-.fallback-wall-sign span {
-  margin-top: 8px;
-  max-width: 20em;
-  color: rgba(255, 247, 233, 0.68);
-  line-height: 1.55;
-}
-
-.fallback-frame {
-  position: absolute;
-  z-index: 2;
-  margin: 0;
-  border: 10px solid #8a5414;
-  background: #f8f1df;
-  box-shadow:
-    0 22px 70px rgba(0, 0, 0, 0.28),
-    inset 0 0 0 1px rgba(255, 247, 233, 0.66);
-  transform-style: preserve-3d;
-}
-
-.fallback-frame img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  background: #fffaf0;
-}
-
-.fallback-frame-main {
-  left: 24%;
-  top: 34%;
-  width: min(52vw, 320px);
-  aspect-ratio: 1.42;
-  transform: rotateY(-8deg) rotateZ(1deg);
-}
-
-.fallback-frame-side {
-  left: -5%;
-  top: 28%;
-  width: min(30vw, 190px);
-  aspect-ratio: 0.86;
-  transform: rotateY(28deg) scale(0.9);
-  opacity: 0.92;
-}
-
-.fallback-frame figcaption {
-  position: absolute;
-  left: 10%;
-  right: 8%;
-  top: calc(100% + 10px);
-  display: grid;
-  gap: 2px;
-  padding: 9px 10px;
-  border-left: 3px solid var(--gold);
-  background: rgba(19, 18, 16, 0.84);
-  color: #fff7e9;
-  backdrop-filter: blur(8px);
-}
-
-.fallback-frame figcaption strong,
-.fallback-frame figcaption span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.fallback-frame figcaption span {
-  color: rgba(255, 247, 233, 0.7);
-  font-size: 12px;
-}
-
-.fallback-floor {
-  position: absolute;
-  left: -8%;
-  right: -8%;
-  bottom: -16%;
-  height: 42%;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(20, 18, 16, 0.48)),
-    repeating-linear-gradient(90deg, rgba(255, 247, 233, 0.12), rgba(255, 247, 233, 0.12) 1px, transparent 1px, transparent 82px);
-  transform: perspective(820px) rotateX(66deg);
-  transform-origin: bottom center;
-}
 
 .gallery-screen-top {
   position: absolute;
@@ -3367,5 +3240,438 @@ h1 {
 
   .gallery-card img {
     width: 82px;
+  }
+}
+
+/* ===== Category scenes (展区巡礼 + WebGL fallback) ===== */
+
+.scene-list {
+  display: grid;
+  gap: 28px;
+}
+
+.category-scene {
+  margin: 0;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.scene-heading {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 18px;
+  align-items: baseline;
+  padding: 18px 22px 16px;
+}
+
+.scene-index {
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--zone-accent, var(--gold));
+}
+
+.scene-heading-copy h3 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.scene-heading-copy p {
+  margin: 6px 0 0;
+  max-width: 46em;
+  color: var(--muted);
+}
+
+.scene-hint {
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.scene-stage {
+  position: relative;
+  overflow: hidden;
+}
+
+.scene-backdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.scene-items {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 32px 28px;
+  margin: 0;
+  padding: 42px 34px 36px;
+  list-style: none;
+}
+
+.scene-item {
+  display: grid;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.35s ease;
+}
+
+.scene-item:hover,
+.scene-item:focus-visible {
+  transform: translateY(-6px);
+}
+
+.scene-item:focus-visible {
+  outline: 2px solid var(--zone-accent, var(--gold));
+  outline-offset: 4px;
+}
+
+.scene-item.is-active .scene-media {
+  outline: 2px solid var(--zone-accent, var(--gold));
+  outline-offset: 3px;
+}
+
+.scene-media {
+  display: block;
+}
+
+.scene-media img {
+  display: block;
+}
+
+.scene-plaque {
+  display: grid;
+  gap: 2px;
+  max-width: 224px;
+  margin-top: 12px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--zone-accent, var(--gold));
+  background: rgba(19, 18, 16, 0.85);
+  color: #fff7e9;
+}
+
+.scene-plaque strong {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scene-plaque em {
+  font-style: normal;
+  font-size: 11.5px;
+  color: rgba(255, 247, 233, 0.68);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 票据类 — accountant's desk flat-lay */
+
+.scene-desk .scene-stage {
+  background: linear-gradient(180deg, #6f4f31, #57391f);
+}
+
+.scene-desk .scene-backdrop {
+  background:
+    radial-gradient(circle at 82% 16%, rgba(255, 224, 166, 0.22), transparent 44%),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.1) 0 2px, transparent 2px 168px),
+    linear-gradient(180deg, rgba(255, 236, 200, 0.1), transparent 55%);
+}
+
+.scene-desk .scene-backdrop::before {
+  content: "档";
+  position: absolute;
+  left: 5%;
+  top: 10%;
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 84px;
+  border: 4px solid rgba(178, 48, 38, 0.4);
+  border-radius: 50%;
+  color: rgba(178, 48, 38, 0.44);
+  font-size: 40px;
+  font-weight: 800;
+  transform: rotate(-14deg);
+}
+
+.scene-desk .scene-backdrop::after {
+  content: "";
+  position: absolute;
+  right: 7%;
+  bottom: 13%;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #e8c17c, #8a5f28 68%, #5c3d17);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.42);
+}
+
+.scene-desk .scene-item {
+  transform: rotate(var(--tilt, 0deg));
+}
+
+.scene-desk .scene-item:hover,
+.scene-desk .scene-item:focus-visible {
+  transform: rotate(0deg) translateY(-8px);
+  z-index: 2;
+}
+
+.scene-desk .scene-media {
+  padding: 12px;
+  background: #fdf8ec;
+  box-shadow: 0 16px 36px rgba(26, 16, 6, 0.45);
+}
+
+.scene-desk .scene-media img {
+  width: 200px;
+  height: 145px;
+  object-fit: cover;
+}
+
+/* 文献类 — archive cabinet */
+
+.scene-cabinet .scene-stage {
+  background: linear-gradient(180deg, #315450, #24403c);
+}
+
+.scene-cabinet .scene-backdrop {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 240, 205, 0.14), transparent 52%),
+    repeating-linear-gradient(180deg, transparent 0 88px, rgba(0, 0, 0, 0.24) 88px 92px),
+    repeating-linear-gradient(90deg, transparent 0 150px, rgba(0, 0, 0, 0.18) 150px 154px);
+}
+
+.scene-cabinet .scene-media {
+  position: relative;
+  margin-top: 16px;
+  padding: 13px 13px 16px;
+  background: linear-gradient(180deg, #d9c49a, #cbb384);
+  box-shadow: 0 18px 34px rgba(8, 20, 18, 0.5);
+}
+
+.scene-cabinet .scene-media::before {
+  content: "";
+  position: absolute;
+  top: -14px;
+  left: 12px;
+  width: 86px;
+  height: 15px;
+  background: #d9c49a;
+  clip-path: polygon(0 100%, 10% 0, 90% 0, 100% 100%);
+}
+
+.scene-cabinet .scene-media img {
+  width: 168px;
+  height: 210px;
+  object-fit: cover;
+}
+
+/* 徽章印章类 — velvet medal tray */
+
+.scene-velvet .scene-stage {
+  background: radial-gradient(circle at 50% 30%, #6b241d, #491713 66%, #35100d);
+}
+
+.scene-velvet .scene-backdrop {
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.4), transparent 14%),
+    radial-gradient(circle at 22% 82%, rgba(255, 214, 150, 0.08), transparent 42%);
+}
+
+.scene-velvet .scene-media {
+  display: grid;
+  place-items: center;
+  width: 158px;
+  height: 158px;
+  justify-self: center;
+  border-radius: 50%;
+  border: 3px solid rgba(216, 178, 108, 0.55);
+  background: radial-gradient(circle at 50% 40%, #3c110d, #2a0b08 76%);
+  box-shadow:
+    inset 0 12px 26px rgba(0, 0, 0, 0.68),
+    0 2px 0 rgba(255, 224, 166, 0.12);
+}
+
+.scene-velvet .scene-media img {
+  width: 126px;
+  height: 126px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.55);
+}
+
+.scene-velvet .scene-plaque {
+  justify-self: center;
+  border-left: 0;
+  border-top: 3px solid var(--zone-accent, var(--gold));
+  text-align: center;
+}
+
+/* 字画类 — dark scroll room */
+
+.scene-scroll .scene-stage {
+  background: linear-gradient(180deg, #2b2e33, #1d1f23 72%);
+}
+
+.scene-scroll .scene-backdrop {
+  background: radial-gradient(ellipse at 50% -12%, rgba(255, 231, 186, 0.26), transparent 58%);
+}
+
+.scene-scroll .scene-items {
+  align-items: flex-start;
+}
+
+.scene-scroll .scene-item {
+  transform: translateY(var(--drop, 0px));
+}
+
+.scene-scroll .scene-item:hover,
+.scene-scroll .scene-item:focus-visible {
+  transform: translateY(calc(var(--drop, 0px) - 6px));
+}
+
+.scene-scroll .scene-media {
+  position: relative;
+  padding: 16px 14px;
+  background: linear-gradient(180deg, #cfc2a5, #c2b493);
+  box-shadow: 0 22px 44px rgba(0, 0, 0, 0.55);
+}
+
+.scene-scroll .scene-media::before,
+.scene-scroll .scene-media::after {
+  content: "";
+  position: absolute;
+  left: -10px;
+  right: -10px;
+  height: 11px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #3a2c1e, #241a10);
+}
+
+.scene-scroll .scene-media::before {
+  top: -6px;
+}
+
+.scene-scroll .scene-media::after {
+  bottom: -6px;
+}
+
+.scene-scroll .scene-media img {
+  width: 150px;
+  height: 248px;
+  object-fit: cover;
+}
+
+/* 器物类 — household long table */
+
+.scene-table .scene-stage {
+  background: #d8cbb4 url("textures/warm-limestone-wall.png");
+  background-size: 460px;
+}
+
+.scene-table .scene-backdrop {
+  background:
+    linear-gradient(102deg, transparent 52%, rgba(255, 232, 186, 0.32) 52% 76%, transparent 76%),
+    linear-gradient(180deg, rgba(53, 40, 26, 0.16), transparent 32%),
+    linear-gradient(
+      180deg,
+      transparent calc(100% - 96px),
+      #77522f calc(100% - 96px) calc(100% - 88px),
+      #4c3016 calc(100% - 88px)
+    );
+}
+
+.scene-table .scene-items {
+  align-items: flex-end;
+  padding-bottom: 100px;
+}
+
+.scene-table .scene-media {
+  padding: 8px 8px 10px;
+  background: #f6efdd;
+  box-shadow: 0 18px 30px rgba(30, 18, 6, 0.4);
+}
+
+.scene-table .scene-media img {
+  width: auto;
+  max-width: 196px;
+  height: var(--object-height, 170px);
+  object-fit: cover;
+}
+
+/* Compact mode — WebGL fallback inside the tour viewport */
+
+.virtual-viewport .category-scene.is-compact {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border: 0;
+  background: none;
+  overflow-y: auto;
+}
+
+.category-scene.is-compact .scene-stage {
+  min-height: 100%;
+}
+
+.category-scene.is-compact .scene-items {
+  gap: 24px 20px;
+  padding: 72px 20px 150px;
+}
+
+@media (max-width: 720px) {
+  .scene-items {
+    gap: 24px 18px;
+    padding: 30px 18px 26px;
+  }
+
+  .scene-heading {
+    grid-template-columns: auto 1fr;
+  }
+
+  .scene-hint {
+    display: none;
+  }
+
+  .scene-desk .scene-media img {
+    width: 150px;
+    height: 110px;
+  }
+
+  .scene-cabinet .scene-media img {
+    width: 128px;
+    height: 162px;
+  }
+
+  .scene-velvet .scene-media {
+    width: 124px;
+    height: 124px;
+  }
+
+  .scene-velvet .scene-media img {
+    width: 98px;
+    height: 98px;
+  }
+
+  .scene-scroll .scene-media img {
+    width: 116px;
+    height: 194px;
+  }
+
+  .scene-table .scene-media img {
+    max-width: 150px;
+    height: calc(var(--object-height, 170px) * 0.78);
+  }
+
+  .scene-plaque {
+    max-width: 170px;
   }
 }

@@ -1,5 +1,6 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import CategoryScene from "./CategoryScene.vue";
 import { useMuseumContext } from "../composables/useMuseumContext";
 import { displayTitle, fileUrl, previewPath } from "../lib/catalog";
 
@@ -34,7 +35,6 @@ const galleryLead = computed(() => {
   return `已根据${routeFilterLabel.value}，从 ${filteredItems.value.length.toLocaleString("zh-CN")} 件匹配藏品中生成 ${route.value.length} 件专题路线。`;
 });
 const activeItem = computed(() => route.value[activeIndex.value]);
-const previousPreviewItem = computed(() => route.value[(activeIndex.value - 1 + route.value.length) % Math.max(1, route.value.length)]);
 const activeZone = computed(() => zones.value.find((zone) => zone.category === activeItem.value?.galleryZone));
 const activeProgress = computed(() => route.value.length ? Math.round((activeIndex.value + 1) / route.value.length * 100) : 0);
 const activeZoneIndex = computed(() => Math.max(0, zones.value.findIndex((zone) => zone.category === activeItem.value?.galleryZone)));
@@ -94,6 +94,9 @@ let sceneStarted = false;
 let isDisposed = false;
 let cameraPosition;
 let cameraLookTarget;
+let environmentTexture;
+let radialShadowTexture;
+let contactStripTexture;
 
 const interactives = [];
 const textureCache = new Map();
@@ -344,14 +347,20 @@ async function initScene() {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.setClearColor(0xf1e4cf, 1);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.36;
+  renderer.toneMappingExposure = 1.08;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFShadowMap;
+  THREE.RectAreaLightUniformsLib.init();
 
   scene = new THREE.Scene();
   scene.fog = new THREE.Fog(0xf1e4cf, 30, 82);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  environmentTexture = pmrem.fromScene(new THREE.RoomEnvironment(), 0.04).texture;
+  scene.environment = environmentTexture;
+  scene.environmentIntensity = 0.38;
+  pmrem.dispose();
 
-  camera = new THREE.PerspectiveCamera(58, 1, 0.1, 110);
+  camera = new THREE.PerspectiveCamera(50, 1, 0.1, 110);
   camera.position.copy(cameraPosition);
 
   textureLoader = new THREE.TextureLoader();
@@ -408,8 +417,8 @@ function loadMaterialTexture(path, repeat = [1, 1]) {
 
 function buildLighting() {
   const length = galleryLength();
-  scene.add(new THREE.AmbientLight(0xffead5, 0.18));
-  scene.add(new THREE.HemisphereLight(0xfff4df, 0x7a6049, 1.18));
+  scene.add(new THREE.AmbientLight(0xffead5, 0.08));
+  scene.add(new THREE.HemisphereLight(0xfff4df, 0x7a6049, 0.34));
 
   const sun = new THREE.DirectionalLight(0xffdfae, 3.35);
   sun.position.set(-4.8, 10.8, 7.4);
@@ -426,28 +435,32 @@ function buildLighting() {
   scene.add(sun);
 
   for (let z = -3.2; z > -length + 10; z -= 10.8) {
-    const skylight = new THREE.RectAreaLight(0xfff0cd, 4.8, 4.8, 5.8);
+    const skylight = new THREE.RectAreaLight(0xfff0cd, 2.4, 4.8, 5.8);
     skylight.position.set(0, GALLERY_SPACE.ceilingY - 0.28, z);
     skylight.rotation.x = -Math.PI / 2;
     scene.add(skylight);
   }
 
-  const leftWasher = new THREE.RectAreaLight(0xffddb0, 3.2, 1.55, length - 4);
+  const leftWasher = new THREE.RectAreaLight(0xffddb0, 2.3, 1.55, length - 4);
   leftWasher.position.set(-GALLERY_SPACE.wallX + 0.32, 3.18, -length / 2 + 5);
   leftWasher.rotation.y = Math.PI / 2;
   scene.add(leftWasher);
 
-  const rightWasher = new THREE.RectAreaLight(0xffddb0, 3.2, 1.55, length - 4);
+  const rightWasher = new THREE.RectAreaLight(0xffddb0, 2.3, 1.55, length - 4);
   rightWasher.position.set(GALLERY_SPACE.wallX - 0.32, 3.18, -length / 2 + 5);
   rightWasher.rotation.y = -Math.PI / 2;
   scene.add(rightWasher);
 
+  // Alternating wall-wash spots: real light pools over the exhibit walls with a
+  // wide penumbra, replacing the painted-on scallop decals that read as fake.
+  let spotSide = -1;
   for (let z = -2.4; z > -length + 8; z -= 6.8) {
-    const spot = new THREE.SpotLight(0xffe0ae, 1.45, 13, Math.PI / 8, 0.58, 1.65);
-    spot.position.set(2.7, 4.86, z + 1.6);
-    spot.target.position.set(0.45, 1.02, z - 0.2);
+    const spot = new THREE.SpotLight(0xffe0ae, 2.6, 16, Math.PI / 6, 0.85, 1.4);
+    spot.position.set(spotSide * 3.9, 4.86, z + 1.2);
+    spot.target.position.set(spotSide * GALLERY_SPACE.artworkX, 2.2, z - 0.2);
     scene.add(spot.target);
     scene.add(spot);
+    spotSide *= -1;
   }
 }
 
@@ -532,6 +545,7 @@ function buildArchitecture() {
   addSkylightWells(length, glassMaterial, ceilingMaterial);
   addTrackLights(length);
   addFloorInlays(length, centerZ);
+  addWallBaseShadows(length, centerZ);
   addEntranceDisplayCases(length);
 
   const pathMaterial = new THREE.MeshBasicMaterial({ color: 0xb98a36, transparent: true, opacity: 0.62 });
@@ -592,8 +606,8 @@ function addTrackLights(length) {
 
 function addFloorInlays(length, centerZ) {
   const seamMaterial = new THREE.MeshBasicMaterial({ color: 0x8f7c62, transparent: true, opacity: 0.18 });
-  const lightPatchMaterial = new THREE.MeshBasicMaterial({ color: 0xffe3ad, transparent: true, opacity: 0.13, depthWrite: false });
-  const softShadowMaterial = new THREE.MeshBasicMaterial({ color: 0x4e3e2f, transparent: true, opacity: 0.13, depthWrite: false });
+  const lightPatchMaterial = new THREE.MeshBasicMaterial({ color: 0xffe3ad, transparent: true, opacity: 0.22, depthWrite: false });
+  const softShadowMaterial = new THREE.MeshBasicMaterial({ color: 0x4e3e2f, transparent: true, opacity: 0.16, depthWrite: false });
 
   for (let x = -4.6; x <= 4.61; x += 2.3) {
     addBox("floor-long-stone-seam", [0.018, 0.012, length - 5.8], [x, 0.012, centerZ], seamMaterial, { castShadow: false, receiveShadow: false });
@@ -619,24 +633,26 @@ function addEntranceDisplayCases(length) {
 function addAmbientDisplayCase(item, placement) {
   const baseMaterial = makeMuseumMaterial({
     texturePath: "textures/walnut-charcoal-slats.png",
-    base: "#684429",
+    base: "#96652f",
     repeat: [1.1, 0.72],
-    roughness: 0.48,
-    metalness: 0.1,
-    emissive: "#1f1208",
-    emissiveIntensity: 0.14,
+    roughness: 0.52,
+    metalness: 0.12,
+    emissive: "#3d2410",
+    emissiveIntensity: 0.32,
   });
   const deckMaterial = new THREE.MeshStandardMaterial({ color: 0xd9c9af, roughness: 0.62, metalness: 0 });
   const bronzeMaterial = new THREE.MeshStandardMaterial({ color: 0x8a6236, roughness: 0.38, metalness: 0.38 });
   const glassMaterial = new THREE.MeshPhysicalMaterial({
-    color: 0xc8e5e7,
+    color: 0xe6f4f2,
     transparent: true,
-    opacity: 0.34,
-    roughness: 0.03,
+    opacity: 0.12,
+    roughness: 0.04,
     metalness: 0,
-    transmission: 0.36,
+    transmission: 0.5,
+    depthWrite: false,
   });
 
+  addContactShadow(4.1, 2.5, placement.x, placement.z);
   addBox("entrance-case-base", [3.12, 0.46, 1.62], [placement.x, 0.28, placement.z], baseMaterial, { castShadow: true, receiveShadow: true });
   addBox("entrance-case-deck", [2.48, 0.05, 1.14], [placement.x, 0.74, placement.z], deckMaterial, { castShadow: true, receiveShadow: true });
   addBox("entrance-case-top-glass", [3.16, 0.035, 1.66], [placement.x, 1.16, placement.z], glassMaterial, { castShadow: true, receiveShadow: false });
@@ -735,9 +751,15 @@ function floorPlanX(placement) {
 function addArtwork(item, placement, index) {
   const { width, height } = artworkSize(item);
   const textureSrc = exhibitSrc(item);
-  const material = new THREE.MeshBasicMaterial({
+  const placeholder = makeArtworkPlaceholderTexture(item, width, height);
+  const material = new THREE.MeshStandardMaterial({
     color: 0xffffff,
-    map: makeArtworkPlaceholderTexture(item, width, height),
+    map: placeholder,
+    emissive: 0xffffff,
+    emissiveMap: placeholder,
+    emissiveIntensity: 0.32,
+    roughness: 0.94,
+    metalness: 0,
     side: THREE.DoubleSide,
   });
   material.userData.textureSrc = textureSrc;
@@ -760,7 +782,7 @@ function addArtwork(item, placement, index) {
     art.rotation.y = placement.x < 0 ? Math.PI / 9 : -Math.PI / 9;
   }
 
-  const frame = makeFrame(width, height, item.galleryAccent);
+  const frame = makeFrame(width, height);
   frame.position.copy(art.position);
   frame.rotation.copy(art.rotation);
   frame.userData.routeIndex = index;
@@ -769,6 +791,7 @@ function addArtwork(item, placement, index) {
     object.receiveShadow = true;
   });
 
+  addArtworkWallDecals(placement, width, height);
   routeGroup.add(frame);
   routeGroup.add(art);
   interactives.push(art, frame);
@@ -779,7 +802,7 @@ function addArtwork(item, placement, index) {
     background: "rgba(25,23,20,0.82)",
     accent: item.galleryAccent,
   });
-  label.position.set(placement.x, placement.y - height / 2 - 0.32, placement.z);
+  label.position.set(placement.x, placement.y - height / 2 - 0.52, placement.z);
   label.rotation.y = placement.rotationY;
   if (placement.side === "case" || placement.side === "plinth") {
     label.position.set(placement.x, 0.74, placement.z + 0.72);
@@ -796,34 +819,31 @@ function artworkSize(item) {
   return { width: 1.44, height: 1.06 };
 }
 
-function makeFrame(width, height, accent) {
+function makeFrame(width, height) {
   const frame = new THREE.Group();
-  const mat = new THREE.MeshLambertMaterial({ color: hexColor(accent) });
-  const back = new THREE.Mesh(
-    new THREE.BoxGeometry(width + 0.18, height + 0.18, 0.045),
-    new THREE.MeshLambertMaterial({ color: 0xf5eedf })
-  );
-  back.position.z = -0.055;
+  const walnut = new THREE.MeshStandardMaterial({ color: 0x4a3423, roughness: 0.52, metalness: 0.06 });
+  const matBoard = new THREE.MeshStandardMaterial({ color: 0xf7f1e3, roughness: 0.92, metalness: 0 });
+  const matHalfW = width / 2 + 0.17;
+  const matHalfH = height / 2 + 0.17;
+  const back = new THREE.Mesh(new THREE.BoxGeometry(matHalfW * 2, matHalfH * 2, 0.05), matBoard);
+  back.position.z = -0.032;
   frame.add(back);
-  const top = new THREE.Mesh(new THREE.BoxGeometry(width + 0.24, 0.052, 0.068), mat);
+  const railT = 0.085;
+  const railD = 0.105;
+  const top = new THREE.Mesh(new THREE.BoxGeometry(matHalfW * 2 + railT * 2, railT, railD), walnut);
   const bottom = top.clone();
-  const left = new THREE.Mesh(new THREE.BoxGeometry(0.052, height + 0.2, 0.068), mat);
+  const left = new THREE.Mesh(new THREE.BoxGeometry(railT, matHalfH * 2, railD), walnut);
   const right = left.clone();
-  top.position.y = height / 2 + 0.08;
-  bottom.position.y = -height / 2 - 0.08;
-  left.position.x = -width / 2 - 0.08;
-  right.position.x = width / 2 + 0.08;
-  top.position.z = 0.025;
-  bottom.position.z = 0.025;
-  left.position.z = 0.025;
-  right.position.z = 0.025;
+  top.position.y = matHalfH + railT / 2;
+  bottom.position.y = -matHalfH - railT / 2;
+  left.position.x = -matHalfW - railT / 2;
+  right.position.x = matHalfW + railT / 2;
+  top.position.z = 0.012;
+  bottom.position.z = 0.012;
+  left.position.z = 0.012;
+  right.position.z = 0.012;
   frame.add(top, bottom, left, right);
   return frame;
-}
-
-function hexColor(value, fallback = 0xb98a36) {
-  const parsed = Number.parseInt(String(value || "").replace("#", ""), 16);
-  return Number.isFinite(parsed) ? parsed : fallback;
 }
 
 function addZoneSign(item, placement) {
@@ -844,24 +864,26 @@ function addZoneSign(item, placement) {
 function addDisplayCase(placement) {
   const baseMaterial = makeMuseumMaterial({
     texturePath: "textures/walnut-charcoal-slats.png",
-    base: "#634229",
+    base: "#8f6130",
     repeat: [1.2, 0.8],
-    roughness: 0.5,
-    metalness: 0.08,
-    emissive: "#1c1008",
-    emissiveIntensity: 0.12,
+    roughness: 0.54,
+    metalness: 0.1,
+    emissive: "#38210e",
+    emissiveIntensity: 0.3,
   });
   const deckMaterial = new THREE.MeshStandardMaterial({ color: 0xd9cbb5, roughness: 0.74, metalness: 0 });
   const bronzeMaterial = new THREE.MeshStandardMaterial({ color: 0x8e6636, roughness: 0.42, metalness: 0.34 });
   const glassMaterial = new THREE.MeshPhysicalMaterial({
-    color: 0xd8f2f3,
+    color: 0xe6f4f2,
     transparent: true,
-    opacity: 0.2,
-    roughness: 0.02,
+    opacity: 0.1,
+    roughness: 0.04,
     metalness: 0,
-    transmission: 0.42,
+    transmission: 0.5,
+    depthWrite: false,
   });
 
+  addContactShadow(3.2, 2.3, placement.x, placement.z);
   const base = new THREE.Mesh(
     new THREE.BoxGeometry(2.36, 0.4, 1.52),
     baseMaterial
@@ -922,6 +944,7 @@ function addDisplayCase(placement) {
 }
 
 function addPlinth(placement) {
+  addContactShadow(1.85, 1.85, placement.x, placement.z);
   const plinth = new THREE.Mesh(
     new THREE.BoxGeometry(1.16, 1.12, 1.16),
     new THREE.MeshLambertMaterial({ color: 0xcac0ad })
@@ -933,16 +956,24 @@ function addPlinth(placement) {
 }
 
 function makeCaseArtworkPlane(item, width, height) {
-  const material = new THREE.MeshBasicMaterial({
+  const placeholder = makeArtworkPlaceholderTexture(item, width, height);
+  const material = new THREE.MeshStandardMaterial({
     color: 0xffffff,
-    map: makeArtworkPlaceholderTexture(item, width, height),
+    map: placeholder,
+    emissive: 0xffffff,
+    emissiveMap: placeholder,
+    emissiveIntensity: 0.32,
+    roughness: 0.94,
+    metalness: 0,
     side: THREE.DoubleSide,
   });
   const src = exhibitSrc(item);
   textureLoader?.load(
     src,
     (texture) => {
-      material.map = configureTexture(texture);
+      const configured = configureTexture(texture);
+      material.map = configured;
+      material.emissiveMap = configured;
       material.needsUpdate = true;
     },
     undefined,
@@ -998,6 +1029,7 @@ function applyArtworkTexture(src, texture) {
   artworkMaterials.forEach((material) => {
     if (material.userData.textureSrc !== src) return;
     material.map = texture;
+    if ("emissiveMap" in material) material.emissiveMap = texture;
     material.needsUpdate = true;
   });
 }
@@ -1052,6 +1084,93 @@ async function prepareInitialTextures() {
     Promise.all([ensureArtworkTexture(activeIndex.value), ensureArtworkTexture(routeIndex(activeIndex.value + 1))]),
     new Promise((resolve) => window.setTimeout(resolve, 1800)),
   ]);
+}
+
+function makeRadialShadowTexture() {
+  if (radialShadowTexture) return radialShadowTexture;
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext("2d");
+  const gradient = ctx.createRadialGradient(128, 128, 12, 128, 128, 126);
+  gradient.addColorStop(0, "rgba(30,23,15,0.6)");
+  gradient.addColorStop(0.55, "rgba(30,23,15,0.28)");
+  gradient.addColorStop(1, "rgba(30,23,15,0)");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 256, 256);
+  radialShadowTexture = new THREE.CanvasTexture(canvas);
+  return radialShadowTexture;
+}
+
+function makeContactStripTexture() {
+  if (contactStripTexture) return contactStripTexture;
+  const canvas = document.createElement("canvas");
+  canvas.width = 128;
+  canvas.height = 16;
+  const ctx = canvas.getContext("2d");
+  const gradient = ctx.createLinearGradient(0, 0, 128, 0);
+  gradient.addColorStop(0, "rgba(30,23,15,0.5)");
+  gradient.addColorStop(0.4, "rgba(30,23,15,0.18)");
+  gradient.addColorStop(1, "rgba(30,23,15,0)");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 128, 16);
+  contactStripTexture = new THREE.CanvasTexture(canvas);
+  return contactStripTexture;
+}
+
+function addContactShadow(width, depth, x, z, opacity = 0.85) {
+  const material = new THREE.MeshBasicMaterial({
+    map: makeRadialShadowTexture(),
+    transparent: true,
+    opacity,
+    depthWrite: false,
+  });
+  const plane = new THREE.Mesh(new THREE.PlaneGeometry(width, depth), material);
+  plane.name = "contact-shadow";
+  plane.position.set(x, 0.023, z);
+  plane.rotation.x = -Math.PI / 2;
+  plane.receiveShadow = false;
+  scene.add(plane);
+  return plane;
+}
+
+function addWallBaseShadows(length, centerZ) {
+  [-1, 1].forEach((sign) => {
+    const material = new THREE.MeshBasicMaterial({
+      map: makeContactStripTexture(),
+      transparent: true,
+      opacity: 0.8,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(0.95, length - 5.4), material);
+    plane.name = "wall-base-shadow";
+    plane.position.set(sign * 5.47, 0.022, centerZ);
+    plane.rotation.x = -Math.PI / 2;
+    if (sign > 0) plane.scale.x = -1;
+    plane.receiveShadow = false;
+    scene.add(plane);
+  });
+}
+
+function addArtworkWallDecals(placement, width, height) {
+  if (placement.side !== "left" && placement.side !== "right") return;
+  const sign = placement.side === "left" ? -1 : 1;
+  const decalX = sign * (GALLERY_SPACE.artworkX + 0.05);
+
+  const shadowMaterial = new THREE.MeshBasicMaterial({
+    map: makeRadialShadowTexture(),
+    transparent: true,
+    opacity: 0.5,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+  const shadow = new THREE.Mesh(new THREE.PlaneGeometry(width + 0.62, height + 0.62), shadowMaterial);
+  shadow.name = "frame-drop-shadow";
+  shadow.position.set(decalX, placement.y - 0.11, placement.z);
+  shadow.rotation.y = placement.rotationY;
+  shadow.receiveShadow = false;
+  routeGroup.add(shadow);
 }
 
 function makeArtworkPlaceholderTexture(item, width, height) {
@@ -1341,6 +1460,11 @@ function disposeScene({ permanent = true } = {}) {
       else object.material?.dispose?.();
     });
   }
+  environmentTexture?.dispose?.();
+  environmentTexture = null;
+  [radialShadowTexture, contactStripTexture].forEach((texture) => texture?.dispose?.());
+  radialShadowTexture = null;
+  contactStripTexture = null;
   renderer?.dispose?.();
   renderer = null;
   scene = null;
@@ -1442,24 +1566,12 @@ onBeforeUnmount(() => {
             <span :style="{ width: `${sceneLoadProgress}%` }"></span>
           </div>
         </div>
-        <div v-if="webglFailed && activeItem" class="fallback-gallery-scene" aria-hidden="true">
-          <div class="fallback-skylight"></div>
-          <div class="fallback-wall-sign">
-            <strong>{{ activeZone?.title }}</strong>
-            <span>{{ activeZone?.subtitle }}</span>
-          </div>
-          <figure v-if="previousPreviewItem" class="fallback-frame fallback-frame-side">
-            <img :src="exhibitSrc(previousPreviewItem)" :alt="displayTitle(previousPreviewItem)" />
-          </figure>
-          <figure class="fallback-frame fallback-frame-main">
-            <img :src="exhibitSrc(activeItem)" :alt="displayTitle(activeItem)" />
-            <figcaption>
-              <strong>{{ activeItem.galleryShortTitle }}</strong>
-              <span>{{ activeItem.collector }} / {{ activeItem.category }}</span>
-            </figcaption>
-          </figure>
-          <div class="fallback-floor"></div>
-        </div>
+        <CategoryScene
+          v-if="webglFailed && activeZone"
+          :zone="activeZone"
+          compact
+          :active-id="activeItem?.id ?? ''"
+        />
         <div class="gallery-screen-top">
           <div>
             <strong>民间收藏博物馆</strong>

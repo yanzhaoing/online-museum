@@ -1,5 +1,6 @@
 export {
   ACESFilmicToneMapping,
+  AdditiveBlending,
   AmbientLight,
   BoxGeometry,
   CanvasTexture,
@@ -18,6 +19,7 @@ export {
   PCFShadowMap,
   PerspectiveCamera,
   PlaneGeometry,
+  PMREMGenerator,
   RectAreaLight,
   RepeatWrapping,
   Scene,
@@ -27,3 +29,5 @@ export {
   Vector3,
   WebGLRenderer,
 } from "three";
+export { RectAreaLightUniformsLib } from "three/examples/jsm/lights/RectAreaLightUniformsLib.js";
+export { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";

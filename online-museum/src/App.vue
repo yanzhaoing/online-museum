@@ -5,6 +5,7 @@ import DetailDialog from "./components/DetailDialog.vue";
 import FeaturedSection from "./components/FeaturedSection.vue";
 import FilterPanel from "./components/FilterPanel.vue";
 import HeroSection from "./components/HeroSection.vue";
+import ScenesSection from "./components/ScenesSection.vue";
 import SearchControls from "./components/SearchControls.vue";
 import StoriesSection from "./components/StoriesSection.vue";
 import SummaryDialog from "./components/SummaryDialog.vue";
@@ -59,6 +60,7 @@ onBeforeUnmount(() => {
       <FilterPanel />
       <FeaturedSection />
       <TourSection />
+      <ScenesSection />
       <CatalogSection />
       <StoriesSection />
     </main>
