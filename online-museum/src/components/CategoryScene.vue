@@ -19,7 +19,7 @@ const SCENE_KINDS = {
   "器物类": "table",
 };
 
-const sceneKind = computed(() => SCENE_KINDS[props.zone?.category] || "desk");
+const sceneKind = computed(() => SCENE_KINDS[props.zone?.sourceCategory || props.zone?.category] || "desk");
 
 const sceneHint = computed(() => ({
   desk: "账房桌面 · 纸本平铺",

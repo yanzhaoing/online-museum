@@ -7,6 +7,7 @@
     "dev": "vite --host 127.0.0.1 --port 8765",
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1 --port 8765",
+    "test:tours": "node online-museum/scripts/verify_tours.mjs",
     "qa:visual": "node online-museum/scripts/qa_chrome.cjs"
   },
   "dependencies": {

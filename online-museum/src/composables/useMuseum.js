@@ -1,17 +1,16 @@
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import {
   catalogItems,
-  buildVirtualGallery,
   countBy,
   displayTitle,
-  docentText,
   previewPath,
   relatedItems,
-  stableVariant,
   topEntries,
   topicTitle,
   uniqueSorted,
 } from "../lib/catalog";
+import { buildMuseumTour, buildMuseumTours, museumTourDefinitions } from "../lib/tours";
+import { toImmersiveGallery } from "../lib/immersive-gallery/presentation";
 
 const ALL = "全部";
 
@@ -24,7 +23,9 @@ export function useMuseum() {
   const collectorCounts = countBy(items, "collector");
   const categoryChartEntries = topEntries(items, "category", 8);
   const collectorChartEntries = topEntries(items, "collector", 8);
-  const virtualGallery = buildVirtualGallery(items);
+  const museumTours = buildMuseumTours(items);
+  const defaultMuseumTour = museumTours[0];
+  const virtualGallery = toImmersiveGallery(defaultMuseumTour);
 
   const query = ref("");
   const category = ref(ALL);
@@ -32,11 +33,6 @@ export function useMuseum() {
   const type = ref(ALL);
   const view = ref("hall");
   const visibleLimit = ref(84);
-  const tour = ref([]);
-  const activeStop = ref(0);
-  const autoTour = ref(false);
-  const tourBasis = ref([]);
-  const tourSummary = ref("");
   const featured = ref([]);
   const featuredIndex = ref(0);
   const compare = ref([]);
@@ -49,7 +45,6 @@ export function useMuseum() {
   const toastVisible = ref(false);
   const isDark = ref(false);
 
-  let autoTimer = null;
   let featuredTimer = null;
   let toastTimer = null;
 
@@ -111,11 +106,16 @@ export function useMuseum() {
       count: categoryCounts[name],
       sample: items.find((item) => item.category === name),
     })));
-  const activeVirtualGallery = computed(() => {
-    if (!activeFilters.value.length) return virtualGallery;
-    const filteredGallery = buildVirtualGallery(filteredItems.value);
-    return filteredGallery.route.length ? filteredGallery : virtualGallery;
+  const activeMuseumTour = computed(() => {
+    if (!activeFilters.value.length) return defaultMuseumTour;
+    const filteredTour = buildMuseumTour(filteredItems.value, {
+      ...museumTourDefinitions[0],
+      id: "filtered-selection",
+      title: "筛选结果导览",
+    });
+    return filteredTour.stops.length ? filteredTour : defaultMuseumTour;
   });
+  const activeVirtualGallery = computed(() => toImmersiveGallery(activeMuseumTour.value));
 
   const collectorCards = computed(() => topEntries(items, "collector", 8).map(([name, total]) => {
     const collectorItems = items.filter((item) => item.collector === name);
@@ -135,10 +135,6 @@ export function useMuseum() {
   const recentViewedItems = computed(() => viewedItems.value.slice(0, 5));
   const viewedPercent = computed(() => Math.min(100, Math.round(viewed.value.length / Math.max(1, items.length) * 1000) / 10));
   const compareHint = computed(() => compare.value.length ? `已选择 ${compare.value.length} 件藏品。` : "选择藏品加入对照，查看类别、藏家与形态之间的关联。");
-  const activeTourItem = computed(() => tour.value[activeStop.value]);
-  const activeTourBasis = computed(() => tourBasis.value.find((entry) => entry.id === activeTourItem.value?.id));
-  const activeTourProgress = computed(() => Math.round((activeStop.value + 1) / Math.max(1, tour.value.length) * 100));
-  const activeDocentText = computed(() => activeTourItem.value ? docentText(activeTourItem.value) : "");
 
   const summaryData = computed(() => {
     const recent = viewedItems.value;
@@ -160,106 +156,6 @@ export function useMuseum() {
       if (a.kind !== b.kind) return a.kind === "image" ? -1 : 1;
       return a.code.localeCompare(b.code, "zh-CN");
     });
-  }
-
-  function codeNumber(item) {
-    const match = String(item.code || item.fileName || "").match(/(\d+)(?!.*\d)/);
-    return match ? Number(match[1]) : 0;
-  }
-
-  function tourCandidateScore(item, index, sourceLength) {
-    let score = 0;
-    if (item.kind === "image") score += 42;
-    if (item.thumbPath) score += 18;
-    if (item.size && item.size > 80 * 1024) score += 8;
-    if (item.category === category.value) score += 16;
-    if (item.collector === collector.value) score += 14;
-    if (query.value && item.search.includes(query.value.trim().toLowerCase())) score += 12;
-    const position = sourceLength ? index / sourceLength : 0;
-    score += Math.sin(position * Math.PI) * 10;
-    score += stableVariant(item, 17);
-    return score;
-  }
-
-  function selectionReason(item, selected, source) {
-    const reasons = [];
-    if (item.kind === "image") reasons.push("具备影像预览，适合在展厅中直接观看");
-    else reasons.push("补入 PDF 档案，保留原始文献阅读线索");
-    if (!selected.some((entry) => entry.category === item.category)) reasons.push(`补足「${item.category}」类别代表`);
-    if (!selected.some((entry) => entry.collector === item.collector)) reasons.push("补充不同登记来源，扩大展线覆盖面");
-    const number = codeNumber(item);
-    if (number) {
-      const existingNumbers = selected.map(codeNumber).filter(Boolean);
-      const hasSpread = existingNumbers.every((value) => Math.abs(value - number) > 2);
-      if (hasSpread) reasons.push("与已选展品形成编号跨度");
-    }
-    if (source.filter((entry) => entry.category === item.category).length > 1) reasons.push("可与同类条目建立横向比较");
-    return reasons.slice(0, 3).join("；");
-  }
-
-  function selectCuratedTour(source, limit = 10) {
-    const ranked = source
-      .map((item, index) => ({ item, index, score: tourCandidateScore(item, index, source.length) }))
-      .sort((a, b) => b.score - a.score || a.item.code.localeCompare(b.item.code, "zh-CN"));
-    const selected = [];
-    const basis = [];
-    const categoryCountsByRoute = new Map();
-    const collectorCountsByRoute = new Map();
-    const kindCountsByRoute = new Map();
-    const maxCategoryRepeat = source.length > 40 ? 3 : 4;
-    const maxCollectorRepeat = source.length > 40 ? 3 : 4;
-
-    for (const candidate of ranked) {
-      if (selected.length >= limit) break;
-      const item = candidate.item;
-      const categoryCount = categoryCountsByRoute.get(item.category) || 0;
-      const collectorCount = collectorCountsByRoute.get(item.collector) || 0;
-      const kindCount = kindCountsByRoute.get(item.kindLabel) || 0;
-      const allowLoose = source.length <= limit;
-      if (!allowLoose && categoryCount >= maxCategoryRepeat) continue;
-      if (!allowLoose && collectorCount >= maxCollectorRepeat) continue;
-      if (!allowLoose && kindCount >= 8) continue;
-      const reason = selectionReason(item, selected, source);
-      selected.push(item);
-      basis.push({ id: item.id, score: Math.round(candidate.score), reason });
-      categoryCountsByRoute.set(item.category, categoryCount + 1);
-      collectorCountsByRoute.set(item.collector, collectorCount + 1);
-      kindCountsByRoute.set(item.kindLabel, kindCount + 1);
-    }
-
-    for (const candidate of ranked) {
-      if (selected.length >= Math.min(limit, source.length)) break;
-      if (selected.some((item) => item.id === candidate.item.id)) continue;
-      selected.push(candidate.item);
-      basis.push({
-        id: candidate.item.id,
-        score: Math.round(candidate.score),
-        reason: selectionReason(candidate.item, selected, source) || "作为候补代表补齐展线结构",
-      });
-    }
-    return { selected, basis };
-  }
-
-  function makeTour(source = displayResults.value) {
-    if (!source.length) {
-      tour.value = [];
-      tourBasis.value = [];
-      tourSummary.value = "";
-      activeStop.value = 0;
-      return;
-    }
-    const imageFirst = source.filter((item) => item.kind === "image");
-    const basePool = imageFirst.length >= 10 ? imageFirst : source;
-    const routeSalt = Date.now() % 997;
-    const shuffledPool = [...basePool].sort((a, b) => stableVariant(a, 997, routeSalt) - stableVariant(b, 997, routeSalt));
-    const { selected, basis } = selectCuratedTour(shuffledPool, 10);
-    tour.value = selected;
-    tourBasis.value = basis;
-    const categoryTotal = new Set(selected.map((item) => item.category)).size;
-    const collectorTotal = new Set(selected.map((item) => item.collector)).size;
-    const imageTotal = selected.filter((item) => item.kind === "image").length;
-    tourSummary.value = `本线从 ${source.length.toLocaleString("zh-CN")} 件候选藏品中生成，优先选择可预览影像，并控制类别、来源与编号跨度：共覆盖 ${categoryTotal} 个类别、${collectorTotal} 个来源，其中 ${imageTotal} 件可直接观看。`;
-    activeStop.value = 0;
   }
 
   function makeFeatured() {
@@ -363,14 +259,12 @@ export function useMuseum() {
   }
 
   function resetFilters(scroll = true) {
-    stopAutoTour();
     query.value = "";
     category.value = ALL;
     collector.value = ALL;
     type.value = ALL;
     visibleLimit.value = view.value === "table" ? 220 : 84;
     closeSuggestions();
-    makeTour(visualFirst(filteredItems.value));
     if (scroll) scrollToSection("#catalog", "smooth");
   }
 
@@ -378,8 +272,6 @@ export function useMuseum() {
     category.value = name;
     collector.value = ALL;
     visibleLimit.value = view.value === "table" ? 220 : 84;
-    stopAutoTour();
-    makeTour(visualFirst(filteredItems.value));
     showToast(`已切换至「${topicTitle(name)}」专题路线`);
     goToHall();
   }
@@ -388,58 +280,7 @@ export function useMuseum() {
     collector.value = name;
     category.value = ALL;
     visibleLimit.value = view.value === "table" ? 220 : 84;
-    stopAutoTour();
-    makeTour(visualFirst(filteredItems.value));
     goToHall();
-  }
-
-  function setActiveStop(index) {
-    if (!tour.value.length) return false;
-    const previous = activeStop.value;
-    activeStop.value = (index + tour.value.length) % tour.value.length;
-    if (activeStop.value === tour.value.length - 1 && previous !== activeStop.value) {
-      showToast("即将完成本条展线，点击“继续参观”可回到起点。");
-    }
-    return previous !== activeStop.value;
-  }
-
-  function nextStop() {
-    setActiveStop(activeStop.value + 1);
-  }
-
-  function previousStop() {
-    setActiveStop(activeStop.value - 1);
-  }
-
-  function continueTour() {
-    stopAutoTour();
-    if (activeStop.value === tour.value.length - 1) {
-      showToast("本条展线参观完成，已回到第一件展品。");
-    }
-    nextStop();
-  }
-
-  function startAutoTour() {
-    if (!tour.value.length) return;
-    stopAutoTour();
-    autoTour.value = true;
-    autoTimer = window.setInterval(nextStop, 3600);
-  }
-
-  function stopAutoTour() {
-    autoTour.value = false;
-    if (autoTimer) window.clearInterval(autoTimer);
-    autoTimer = null;
-  }
-
-  function toggleAutoTour() {
-    if (autoTour.value) stopAutoTour();
-    else startAutoTour();
-  }
-
-  function shuffleTour() {
-    stopAutoTour();
-    makeTour(visualFirst(filteredItems.value));
   }
 
   function openSuggestions() {
@@ -500,21 +341,13 @@ export function useMuseum() {
 
   watch([query, category, collector, type], () => {
     visibleLimit.value = view.value === "table" ? 220 : 84;
-    stopAutoTour();
-    makeTour(visualFirst(filteredItems.value));
-  });
-
-  watch(view, () => {
-    if (view.value === "hall") makeTour(visualFirst(filteredItems.value));
   });
 
   loadViewed();
   makeFeatured();
-  makeTour(visualFirst(filteredItems.value));
   startFeaturedLoop();
 
   onBeforeUnmount(() => {
-    stopAutoTour();
     window.clearInterval(featuredTimer);
     window.clearTimeout(toastTimer);
   });
@@ -527,11 +360,6 @@ export function useMuseum() {
     type,
     view,
     visibleLimit,
-    tour,
-    activeStop,
-    autoTour,
-    tourBasis,
-    tourSummary,
     featured,
     featuredIndex,
     compare,
@@ -561,6 +389,8 @@ export function useMuseum() {
     searchSuggestions,
     featuredItem,
     topicRoutes,
+    museumTours,
+    activeMuseumTour,
     activeVirtualGallery,
     collectorCards,
     virtualGallery,
@@ -568,13 +398,8 @@ export function useMuseum() {
     recentViewedItems,
     viewedPercent,
     compareHint,
-    activeTourItem,
-    activeTourBasis,
-    activeTourProgress,
-    activeDocentText,
     summaryData,
     displayTitle,
-    docentText,
     previewPath,
     relatedItems: (item) => relatedItems(items, item),
     isViewed,
@@ -591,13 +416,6 @@ export function useMuseum() {
     addCompare,
     removeCompare,
     clearTrail,
-    setActiveStop,
-    nextStop,
-    previousStop,
-    continueTour,
-    stopAutoTour,
-    toggleAutoTour,
-    shuffleTour,
     openSuggestions,
     closeSuggestions,
     openFirstSuggestion,
