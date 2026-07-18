@@ -40,7 +40,7 @@ function clearCardTilt(event) {
 
 <template>
   <section class="museum-section" id="catalog">
-    <div class="section-heading">
+    <div class="section-heading" data-fx>
       <p class="eyebrow">Collection Browser</p>
       <h2>全馆藏品</h2>
       <p>{{ resultText }}</p>

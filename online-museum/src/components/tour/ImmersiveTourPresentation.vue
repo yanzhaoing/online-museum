@@ -64,6 +64,10 @@ function openActiveDetail() {
         @pointercancel="immersive.onViewportPointerUp"
       >
         <canvas :ref="immersive.canvasRef" class="virtual-canvas" aria-hidden="true"></canvas>
+        <div v-if="!navigation.route.value.length" class="gallery-empty" role="status">
+          <strong>当前筛选没有可进入展厅的影像展品</strong>
+          <span>请调整筛选条件，或返回全馆浏览全部藏品。</span>
+        </div>
         <div v-if="immersive.sceneLoading.value && !immersive.webglFailed.value" class="gallery-loader" role="status" aria-live="polite">
           <div class="gallery-loader-mark" aria-hidden="true"><span></span><span></span></div>
           <div class="gallery-loader-copy">
@@ -85,13 +89,13 @@ function openActiveDetail() {
             <strong>民间收藏博物馆</strong>
             <span>{{ navigation.activeZone.value?.title || routeModeLabel }}</span>
           </div>
-          <button class="icon-action gallery-reset" type="button" aria-label="重置视角" title="重置视角" @click.stop="immersive.resetView">⌖</button>
+          <button class="icon-action gallery-reset" type="button" aria-label="重置视角" title="重置视角" @pointerdown.stop @click.stop="immersive.resetView">⌖</button>
         </div>
         <div v-if="navigation.activeItem.value" class="viewport-item-hud">
           <span>{{ String(navigation.activeIndex.value + 1).padStart(2, "0") }} / {{ String(navigation.route.value.length).padStart(2, "0") }} · {{ navigation.activeZone.value?.title }}</span>
           <strong>{{ navigation.activeItem.value.galleryShortTitle }}</strong>
         </div>
-        <div class="phone-controls" aria-label="手机游览控制" @pointerdown.stop @pointermove.stop @pointerup.stop @pointercancel.stop @click.stop>
+        <div v-if="navigation.route.value.length" class="phone-controls" aria-label="手机游览控制" @pointerdown.stop @pointermove.stop @pointerup.stop @pointercancel.stop @click.stop>
           <div class="path-controls" role="group" :aria-label="`${routeModeLabel}移动`">
             <button class="path-step" type="button" aria-label="上一件展品" title="上一件展品" @click.stop="navigation.previousStop"><span aria-hidden="true">‹</span><small>上一件</small></button>
             <button class="path-step is-primary" type="button" aria-label="下一件展品" title="下一件展品" @click.stop="navigation.nextStop"><small>下一件</small><span aria-hidden="true">›</span></button>

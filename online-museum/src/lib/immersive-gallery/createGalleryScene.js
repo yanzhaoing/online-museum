@@ -6,6 +6,9 @@ export async function createGalleryScene(options) {
   const renderer = createRenderer(THREE, canvas);
   if (!renderer) throw new Error("WebGL is not available");
 
+  // 初始化中途抛错时也必须回收 renderer，避免 WebGL 上下文泄漏（调用方拿不到场景句柄）
+  let disposed = false;
+  try {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.setClearColor(0xf1e4cf, 1);
@@ -153,6 +156,11 @@ export async function createGalleryScene(options) {
     if (texturePromises.has(src)) return texturePromises.get(src);
     const promise = new Promise((resolve) => {
       textureLoader.load(src, (texture) => {
+        if (disposed) {
+          texture.dispose();
+          resolve(null);
+          return;
+        }
         const configured = primitives.configureTexture(texture);
         textureCache.set(src, configured);
         texturePromises.delete(src);
@@ -291,6 +299,7 @@ export async function createGalleryScene(options) {
   }
 
   function dispose() {
+    disposed = true;
     if (animationFrame) window.cancelAnimationFrame(animationFrame);
     resizeObserver?.disconnect();
     texturePromises.clear();
@@ -307,6 +316,11 @@ export async function createGalleryScene(options) {
   }
 
   return { dispose, getActiveArtworkProjection, warmTextures };
+  } catch (error) {
+    disposed = true;
+    renderer.dispose();
+    throw error;
+  }
 }
 
 function createRenderer(THREE, canvas) {

@@ -84,7 +84,7 @@ function selectTourItems(source, selection = {}) {
       const code = compactCode(item.code);
       if (seenCodes.has(code)) return false;
       const collectorCount = seenCollectors.get(item.collector) || 0;
-      const collectorCap = LOW_PRIORITY_COLLECTORS.has(item.collector) ? 1 : 4;
+      const collectorCap = LOW_PRIORITY_COLLECTORS.has(item.sourceCollector) ? 1 : 4;
       if (collectorCount >= collectorCap) return false;
       seenCodes.add(code);
       seenCollectors.set(item.collector, collectorCount + 1);
@@ -96,7 +96,7 @@ function selectTourItems(source, selection = {}) {
 
 function tourCandidateScore(item, index) {
   const sizeScore = Math.min(48, Math.log10(Math.max(1, item.size || 1)) * 7);
-  const sourceScore = LOW_PRIORITY_COLLECTORS.has(item.collector) ? -16 : 10;
+  const sourceScore = LOW_PRIORITY_COLLECTORS.has(item.sourceCollector) ? -16 : 10;
   const codeScore = compactCode(item.code).length > 10 ? 8 : 0;
   const imageScore = item.thumbPath ? 18 : 0;
   return sizeScore + sourceScore + codeScore + imageScore + stableVariant(item, 13, index);

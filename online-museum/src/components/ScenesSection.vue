@@ -10,7 +10,7 @@ const zones = computed(() => virtualGallery.zones.filter((zone) => zone.exhibits
 
 <template>
   <section class="museum-section" id="scenes" aria-labelledby="scenesTitle">
-    <div class="section-heading">
+    <div class="section-heading" data-fx>
       <div>
         <p class="eyebrow">Category Scenes</p>
         <h2 id="scenesTitle">展区巡礼</h2>
@@ -18,7 +18,13 @@ const zones = computed(() => virtualGallery.zones.filter((zone) => zone.exhibits
       </div>
     </div>
     <div class="scene-list">
-      <CategoryScene v-for="zone in zones" :key="zone.category" :zone="zone" />
+      <CategoryScene
+        v-for="(zone, zoneIndex) in zones"
+        :key="zone.category"
+        :zone="zone"
+        data-fx
+        :style="{ '--fx-index': zoneIndex % 3 }"
+      />
     </div>
   </section>
 </template>

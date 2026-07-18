@@ -19,7 +19,7 @@ async function chooseFilter(key, value) {
 
 <template>
   <section class="filters" aria-label="筛选器">
-    <div v-for="group in groups" :key="group.key">
+    <div v-for="(group, groupIndex) in groups" :key="group.key" data-fx :style="{ '--fx-index': groupIndex }">
       <h2>{{ group.title }}</h2>
       <div class="chip-row">
         <button

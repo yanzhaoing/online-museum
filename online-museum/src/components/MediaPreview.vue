@@ -26,7 +26,7 @@ const src = computed(() => fileUrl(props.original ? props.item.path : previewPat
     :class="className"
     :src="src"
     :alt="displayTitle(item)"
-    loading="eager"
+    loading="lazy"
     decoding="async"
   />
   <div v-else class="pdf-face" :class="className">

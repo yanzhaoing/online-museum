@@ -8,7 +8,7 @@ const { featured, featuredIndex, featuredItem, topicRoutes, openDetail, chooseTo
 
 <template>
   <section class="museum-section featured-section" id="featured">
-    <div class="section-heading">
+    <div class="section-heading" data-fx>
       <p class="eyebrow">Featured Path</p>
       <h2>策展精选</h2>
       <p v-if="featured.length">{{ featuredIndex + 1 }} / {{ featured.length }} 件代表性展品</p>
@@ -20,6 +20,7 @@ const { featured, featuredIndex, featuredItem, topicRoutes, openDetail, chooseTo
         class="featured-card"
         type="button"
         aria-label="查看精选藏品"
+        data-fx="left"
         @click="openDetail(featuredItem.id)"
       >
         <MediaPreview :item="featuredItem" />
@@ -33,7 +34,7 @@ const { featured, featuredIndex, featuredItem, topicRoutes, openDetail, chooseTo
           <p>来自 {{ featuredItem.folder }}，可进入详情查看原始影像、建档编号与相关线索。</p>
         </div>
       </button>
-      <div class="topic-panel">
+      <div class="topic-panel" data-fx :style="{ '--fx-index': 1 }">
         <h3>专题路线</h3>
         <div class="topic-routes">
           <button

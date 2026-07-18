@@ -74,7 +74,7 @@ export function useMuseum() {
   const visibleItems = computed(() => displayResults.value.slice(0, visibleLimit.value));
   const canLoadMore = computed(() => visibleItems.value.length < displayResults.value.length);
   const loadMoreCount = computed(() => Math.min(84, displayResults.value.length - visibleItems.value.length));
-  const resultText = computed(() => `当前显示 ${filteredItems.value.length.toLocaleString("zh-CN")} / ${items.length.toLocaleString("zh-CN")} 件`);
+  const resultText = computed(() => `当前显示 ${visibleItems.value.length.toLocaleString("zh-CN")} / ${items.length.toLocaleString("zh-CN")} 件`);
 
   const activeFilters = computed(() => {
     const active = [];
@@ -108,12 +108,11 @@ export function useMuseum() {
     })));
   const activeMuseumTour = computed(() => {
     if (!activeFilters.value.length) return defaultMuseumTour;
-    const filteredTour = buildMuseumTour(filteredItems.value, {
+    return buildMuseumTour(filteredItems.value, {
       ...museumTourDefinitions[0],
       id: "filtered-selection",
       title: "筛选结果导览",
     });
-    return filteredTour.stops.length ? filteredTour : defaultMuseumTour;
   });
   const activeVirtualGallery = computed(() => toImmersiveGallery(activeMuseumTour.value));
 
@@ -304,18 +303,19 @@ export function useMuseum() {
   }
 
   function scrollToSection(selector, behavior = "smooth") {
-    const target = document.querySelector(selector);
+    let target = null;
+    try {
+      target = document.querySelector(selector);
+    } catch (error) {
+      return;
+    }
     if (!target) return;
     const top = Math.max(0, target.offsetTop - 84);
     target.setAttribute("tabindex", "-1");
     try {
-      target.focus({ preventScroll: false });
+      target.focus({ preventScroll: true });
     } catch (error) {
       target.focus();
-    }
-    if (document.scrollingElement) {
-      document.scrollingElement.scrollTop = top;
-      return;
     }
     try {
       window.scrollTo({ top, behavior });

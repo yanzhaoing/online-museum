@@ -28,12 +28,12 @@ function barWidth(entries, count) {
 
 <template>
   <section class="museum-section" id="stories">
-    <div class="section-heading">
+    <div class="section-heading" data-fx>
       <p class="eyebrow">Archive Rhythm</p>
       <h2>档案脉络</h2>
     </div>
 
-    <div class="visit-trail" aria-label="观展足迹">
+    <div class="visit-trail" aria-label="观展足迹" data-fx>
       <div class="trail-summary">
         <span class="collector-count">{{ viewed.length.toLocaleString("zh-CN") }} 件已看</span>
         <div>
@@ -64,7 +64,7 @@ function barWidth(entries, count) {
       </div>
     </div>
 
-    <div class="collector-strip" aria-label="藏家索引">
+    <div class="collector-strip" aria-label="藏家索引" data-fx :style="{ '--fx-index': 1 }">
       <button
         v-for="card in collectorCards"
         :key="card.name"
@@ -79,7 +79,7 @@ function barWidth(entries, count) {
     </div>
 
     <div class="insight-grid">
-      <div class="insight-panel is-visible">
+      <div class="insight-panel" data-fx :style="{ '--fx-index': 0 }">
         <h3>类别结构</h3>
         <div class="bar-chart">
           <div v-for="[label, count] in categoryChartEntries" :key="label" class="bar">
@@ -91,7 +91,7 @@ function barWidth(entries, count) {
           </div>
         </div>
       </div>
-      <div class="insight-panel is-visible">
+      <div class="insight-panel" data-fx :style="{ '--fx-index': 1 }">
         <h3>藏家贡献</h3>
         <div class="bar-chart">
           <div v-for="[label, count] in collectorChartEntries" :key="label" class="bar">
@@ -103,7 +103,7 @@ function barWidth(entries, count) {
           </div>
         </div>
       </div>
-      <div class="insight-panel is-visible">
+      <div class="insight-panel" data-fx :style="{ '--fx-index': 2 }">
         <h3>专题对照</h3>
         <p>{{ compareHint }}</p>
         <div class="compare-tray">

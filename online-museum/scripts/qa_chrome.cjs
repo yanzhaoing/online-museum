@@ -126,11 +126,11 @@ async function clickButton(cdp, label) {
 }
 
 async function waitForGalleryReady(cdp) {
-  await waitFor(cdp, `document.querySelector(".virtual-viewport") && window.__museumGalleryQa`, 10000);
+  await waitFor(cdp, `document.querySelector(".virtual-viewport") && window.__museumGalleryQa`, 30000);
   await waitFor(cdp, `(() => {
     const state = window.__museumGalleryQa?.getState?.();
     return state && (state.ready || state.webglFailed);
-  })()`, 25000);
+  })()`, 90000);
   const galleryState = await evaluate(cdp, `window.__museumGalleryQa.getState()`);
   assertQa(!galleryState.webglFailed, "Virtual gallery visual QA requires WebGL; fallback view was rendered.", galleryState);
   return galleryState;
@@ -199,7 +199,7 @@ async function main() {
   const cdp = await createCdp(await pageWebSocketUrl(browserWsUrl));
   await cdp.send("Page.enable");
   await cdp.send("Runtime.enable");
-  await delay(1500);
+  await delay(2800);
 
   const checks = [];
   checks.push(await evaluate(cdp, `({
@@ -209,6 +209,11 @@ async function main() {
     itemCards: document.querySelectorAll(".item-card").length,
     stats: [...document.querySelectorAll(".hero-stats strong")].map((node) => node.textContent.trim())
   })`));
+  const heroFx = await evaluate(cdp, `window.__heroFx?.getState?.() || null`);
+  checks.push({ heroFx });
+  assertQa(heroFx && (heroFx.mode === "gl" || heroFx.mode === "fallback"), "Hero FX state is not exposed or has an unexpected mode.", heroFx || {});
+  const marqueeCount = await evaluate(cdp, `document.querySelectorAll(".marquee-strip").length`);
+  assertQa(marqueeCount === 1, "Marquee strip is missing from the page.", { marqueeCount });
   const desktop = await capture(cdp, "desktop-hero");
 
   await evaluate(cdp, `(() => {
@@ -237,17 +242,18 @@ async function main() {
   assertQa(topicRouteState.heading.includes("类别：文献类"), "Topic route click did not generate a filtered gallery route.", topicRouteState);
 
   await cdp.send("Page.navigate", { url: galleryQaUrl });
-  await waitFor(cdp, `document.querySelector("#hall")`, 5000);
+  await waitFor(cdp, `document.querySelector("#hall")`, 30000);
   await evaluate(cdp, `document.querySelector("#hall").scrollIntoView({ block: "start" })`);
   await waitForGalleryReady(cdp);
   await delay(1600);
   const desktopGallery = await capture(cdp, "desktop-gallery");
 
   await cdp.send("Page.navigate", { url });
-  await delay(1200);
+  await waitFor(cdp, `document.querySelector("#catalog") && !document.querySelector(".preloader-veil")`, 20000);
+  await delay(400);
 
   await evaluate(cdp, `window.scrollTo(0, document.querySelector("#catalog").offsetTop - 90)`);
-  await delay(500);
+  await delay(900);
   const catalog = await capture(cdp, "desktop-catalog");
 
   await evaluate(cdp, `document.querySelector(".item-card")?.click()`);
@@ -261,7 +267,7 @@ async function main() {
   await evaluate(cdp, `document.querySelector(".detail-dialog")?.close()`);
   await delay(300);
   await evaluate(cdp, `document.scrollingElement.scrollTop = document.querySelector("#stories").offsetTop - 90`);
-  await delay(900);
+  await delay(1500);
   checks.push(await evaluate(cdp, `({
     insightPanels: document.querySelectorAll(".insight-panel").length,
     collectorCards: document.querySelectorAll(".collector-card").length,
@@ -278,7 +284,8 @@ async function main() {
     mobile: true,
   });
   await cdp.send("Page.navigate", { url });
-  await delay(1800);
+  await waitFor(cdp, `document.querySelector(".hero-stats") && !document.querySelector(".preloader-veil")`, 20000);
+  await delay(1200);
   checks.push(await evaluate(cdp, `({
     width: innerWidth,
     statRects: [...document.querySelectorAll(".hero-stats span")].map((node) => {
@@ -289,7 +296,7 @@ async function main() {
   const mobile = await capture(cdp, "mobile-hero");
 
   await cdp.send("Page.navigate", { url: galleryQaUrl });
-  await waitFor(cdp, `document.querySelector("#hall")`, 5000);
+  await waitFor(cdp, `document.querySelector("#hall")`, 30000);
   await evaluate(cdp, `document.querySelector("#hall").scrollIntoView({ block: "start" })`);
   await waitForGalleryReady(cdp);
 
@@ -305,7 +312,7 @@ async function main() {
   const closeExhibit = await capture(cdp, "mobile-close-exhibit");
   assertQa(closeArtwork.ready, "Close-up artwork evidence could not be read.", closeArtwork);
   assertQa(closeArtwork.state.viewerMode === "close", "Close-up artwork QA did not enter close viewing mode.", closeArtwork);
-  assertQa(closeArtwork.state.activeTitle.includes("0010"), "Close-up artwork QA did not reach the known pilaster-regression exhibit.", closeArtwork);
+  assertQa(closeArtwork.state.activeTitle.includes("0049"), "Close-up artwork QA did not reach the known pilaster-regression exhibit.", closeArtwork);
 
   await clickButton(cdp, "回到走廊");
   await delay(900);

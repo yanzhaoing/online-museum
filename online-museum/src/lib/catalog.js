@@ -25,7 +25,8 @@ function buildSearchText(item) {
 }
 
 function normalizeCatalogItem(item) {
-  const normalized = { ...item, collector: normalizeCollectorName(item?.collector) };
+  const sourceCollector = String(item?.collector || "").trim();
+  const normalized = { ...item, sourceCollector, collector: normalizeCollectorName(item?.collector) };
   return { ...normalized, search: buildSearchText(normalized) };
 }
 

@@ -7,6 +7,7 @@ import { displayTitle, docentText, fileUrl, formatBytes, previewPath } from "../
 const dialog = ref(null);
 const zoomed = ref(false);
 const previewSrc = ref("");
+const originalFailed = ref(false);
 const { detailItem, detailOpen, closeDetail, openDetail, relatedItems, showToast } = useMuseumContext();
 const related = computed(() => detailItem.value ? relatedItems(detailItem.value) : []);
 
@@ -21,16 +22,19 @@ function handleNativeClose() {
 
 watch(detailItem, () => {
   zoomed.value = false;
+  originalFailed.value = false;
   previewSrc.value = detailItem.value ? fileUrl(detailItem.value.path) : "";
 });
 
 function useThumbnailFallback() {
+  originalFailed.value = true;
   if (!detailItem.value?.thumbPath) return;
   const fallback = fileUrl(previewPath(detailItem.value));
   if (previewSrc.value !== fallback) previewSrc.value = fallback;
 }
 
 watch(detailOpen, async (isOpen) => {
+  if (!isOpen) zoomed.value = false;
   await nextTick();
   if (!dialog.value) return;
   if (isOpen && !dialog.value.open) {
@@ -101,7 +105,8 @@ watch(detailOpen, async (isOpen) => {
             </button>
           </div>
         </section>
-        <a class="open-file" :href="fileUrl(detailItem.path)" target="_blank" rel="noreferrer">打开原始档案</a>
+        <span v-if="originalFailed" class="open-file is-unavailable" aria-disabled="true">原始档案不可用，当前显示缩略图</span>
+        <a v-else class="open-file" :href="fileUrl(detailItem.path)" target="_blank" rel="noreferrer">打开原始档案</a>
       </aside>
     </div>
   </dialog>
