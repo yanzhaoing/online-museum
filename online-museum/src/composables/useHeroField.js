@@ -77,6 +77,7 @@ export function useHeroField(getItems) {
       field = null;
       mode.value = "fallback";
       ready.value = true;
+      window.__heroFxError = String(error?.message || error);
     }
   });
 
@@ -90,5 +91,9 @@ export function useHeroField(getItems) {
     if (window.__heroFx) delete window.__heroFx;
   });
 
-  return { canvasRef, viewportRef, mode, ready };
+  function setTheme() {
+    field?.setTheme?.();
+  }
+
+  return { canvasRef, viewportRef, mode, ready, setTheme };
 }

@@ -46,6 +46,7 @@ onBeforeUnmount(() => {
       </span>
     </a>
     <nav class="nav" aria-label="主导航">
+      <a href="#highlights">精品</a>
       <a href="#hall">展厅</a>
       <a href="#catalog">藏品</a>
       <a href="#stories">脉络</a>

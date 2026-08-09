@@ -13,7 +13,7 @@ const props = defineProps({
   routeModeLabel: { type: String, required: true },
 });
 
-const { openDetail, showToast } = useMuseumContext();
+const { openDetail, showToast, museumTours, selectedTourId, chooseTour, activeFilters, openExhibitionText } = useMuseumContext();
 const galleryRef = computed(() => props.gallery);
 const navigation = useTourNavigation(galleryRef, { showToast });
 const activeSide = computed(() => {
@@ -48,7 +48,23 @@ function openActiveDetail() {
           {{ navigation.autoTour.value ? "暂停游线" : routeModeLabel }}
         </button>
         <button class="ghost-action" type="button" @click="navigation.routeMapOpen.value = !navigation.routeMapOpen.value">导览图</button>
+        <button class="ghost-action" type="button" @click="openExhibitionText">展览文本</button>
       </div>
+    </div>
+
+    <div class="tour-tabs" role="tablist" aria-label="切换游线">
+      <button
+        v-for="tour in museumTours"
+        :key="tour.id"
+        class="tour-tab"
+        :class="{ 'is-active': tour.id === selectedTourId && !activeFilters.length }"
+        type="button"
+        role="tab"
+        :aria-selected="tour.id === selectedTourId && !activeFilters.length"
+        @click="chooseTour(tour.id)"
+      >
+        {{ tour.shortTitle || tour.title }}
+      </button>
     </div>
 
     <div class="virtual-gallery">

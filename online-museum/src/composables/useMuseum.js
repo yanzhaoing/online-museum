@@ -11,6 +11,7 @@ import {
 } from "../lib/catalog";
 import { buildMuseumTour, buildMuseumTours, museumTourDefinitions } from "../lib/tours";
 import { toImmersiveGallery } from "../lib/immersive-gallery/presentation";
+import { buildExhibitionSlides } from "../lib/exhibition";
 
 const ALL = "全部";
 
@@ -41,6 +42,8 @@ export function useMuseum() {
   const detailItem = ref(null);
   const detailOpen = ref(false);
   const summaryOpen = ref(false);
+  const exhibitionTextOpen = ref(false);
+  const exhibitionSlides = buildExhibitionSlides(items);
   const toast = ref("");
   const toastVisible = ref(false);
   const isDark = ref(false);
@@ -98,6 +101,9 @@ export function useMuseum() {
   });
 
   const featuredItem = computed(() => featured.value[featuredIndex.value % Math.max(1, featured.value.length)]);
+  const selectedTourId = ref("collection-highlights");
+  const selectedMuseumTour = computed(() =>
+    museumTours.find((tour) => tour.id === selectedTourId.value) || defaultMuseumTour);
   const topicRoutes = computed(() => ["票据类", "文献类", "字画类", "器物类", "徽章印章类"]
     .filter((name) => categoryCounts[name])
     .map((name) => ({
@@ -107,7 +113,7 @@ export function useMuseum() {
       sample: items.find((item) => item.category === name),
     })));
   const activeMuseumTour = computed(() => {
-    if (!activeFilters.value.length) return defaultMuseumTour;
+    if (!activeFilters.value.length) return selectedMuseumTour.value;
     return buildMuseumTour(filteredItems.value, {
       ...museumTourDefinitions[0],
       id: "filtered-selection",
@@ -246,6 +252,24 @@ export function useMuseum() {
     const refs = { category, collector, type };
     if (!refs[key]) return;
     refs[key].value = value;
+  }
+
+  // 切换虚拟展馆游线（如「琴韵流芳·孙海滨古琴展」）；切游线时清除筛选，避免被筛选游线覆盖
+  function chooseTour(id) {
+    if (!museumTours.some((tour) => tour.id === id)) return;
+    selectedTourId.value = id;
+    query.value = "";
+    category.value = ALL;
+    collector.value = ALL;
+    type.value = ALL;
+  }
+
+  function openExhibitionText() {
+    exhibitionTextOpen.value = true;
+  }
+
+  function closeExhibitionText() {
+    exhibitionTextOpen.value = false;
   }
 
   function setView(nextView) {
@@ -390,10 +414,14 @@ export function useMuseum() {
     featuredItem,
     topicRoutes,
     museumTours,
+    selectedTourId,
+    selectedMuseumTour,
     activeMuseumTour,
     activeVirtualGallery,
     collectorCards,
     virtualGallery,
+    exhibitionTextOpen,
+    exhibitionSlides,
     viewedItems,
     recentViewedItems,
     viewedPercent,
@@ -409,10 +437,13 @@ export function useMuseum() {
     resetFilters,
     chooseTopic,
     chooseCollector,
+    chooseTour,
     openDetail,
     closeDetail,
     openSummary,
     closeSummary,
+    openExhibitionText,
+    closeExhibitionText,
     addCompare,
     removeCompare,
     clearTrail,

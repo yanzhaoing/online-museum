@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
-globalThis.window = { MUSEUM_CATALOG: { items: [], stats: {} } };
+globalThis.window = {};
+new Function(readFileSync(new URL("../data/catalog.js", import.meta.url), "utf8"))();
 
-const { buildMuseumTour } = await import("../src/lib/tours.js");
+const { buildMuseumTour, buildMuseumTours } = await import("../src/lib/tours.js");
+const { catalogItems } = await import("../src/lib/catalog.js");
 
 const source = [
   fixture("item-a", "票据类", "0001", { description: "Reusable description" }),
@@ -43,6 +46,16 @@ assert.equal(curatedTour.stops[0].background, "Reusable background");
 assert.equal(curatedTour.stops[1].background, "Tour-specific background");
 
 console.log("Tour content model checks passed.");
+
+// 真实目录：古琴展游线完整性（八单元、27 件影像展品、档号全部解析）
+const guqin = buildMuseumTours(catalogItems).find((tour) => tour.id === "guqin-exhibition");
+assert.ok(guqin, "guqin-exhibition tour is missing");
+assert.equal(guqin.groups.length, 8);
+assert.equal(guqin.stops.length, 27);
+assert.ok(guqin.stops.every((stop) => stop.item.kind === "image"), "guqin tour should only mount image exhibits");
+assert.ok(guqin.stops.every((stop) => stop.item.thumbPath), "guqin tour exhibits should all have thumbnails");
+assert.equal(guqin.groups[0].hall, "第一展厅 · 纸上琴韵");
+console.log("Guqin exhibition tour checks passed.");
 
 function fixture(id, category, code, extra = {}) {
   return {

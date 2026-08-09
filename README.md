@@ -1,6 +1,6 @@
 # 民间藏品线上博物馆
 
-这是一个基于 Vite + Vue 3 的线上博物馆前端项目，包含互动展线、藏品检索、专题路线、观展足迹、对照分析和沉浸式浏览效果。构建后仍然输出为静态文件，可部署到 GitHub Pages 或任何静态文件服务器。
+这是一个基于 Vite + Vue 3 的线上博物馆前端项目，包含互动展线、藏品检索、专题路线、精品游览线路、主题云展览（如"琴韵流芳·文脉传承——孙海滨民间收藏数字展"）、观展足迹、对照分析和沉浸式浏览效果。构建后仍然输出为静态文件，可部署到 GitHub Pages 或任何静态文件服务器。
 
 ## 快速启动
 
@@ -31,7 +31,9 @@ http://127.0.0.1:8765/online-museum/index.html
 - `online-museum/src/`：Vue 组件、状态组合函数与目录工具
 - `online-museum/styles.css`：视觉与动效
 - `online-museum/data/catalog.js`：馆藏目录数据
-- `online-museum/thumbs/`：缩略图素材
+- `online-museum/thumbs/`：缩略图素材（精品长廊与特展背景直接虚化复用馆藏字画《管平湖作品》缩略图）
+- `online-museum/src/content/`：导览与特展策展文案（`tours.js` 主题导览；`exhibition-sunhaibin.js` 孙海滨古琴收藏数字展，展品按档号关联目录条目）
+- `online-museum/scripts/`：视觉 QA 截图脚本（`qa_chrome.cjs` 全流程画廊/特展回归（npm run qa:visual）、`qa_console.cjs` 控制台零错误抽查、`qa_pdf_dialog.cjs` PDF 详情弹窗抽查、`qa_gallery_pixels.cjs` 3D 展厅像素/渲染抽查、`qa_hero_pixels.cjs` 首屏 GL 抽查）
 - `vite.config.js` / `package.json`：Vite + Vue 开发与静态构建配置
 - `启动线上博物馆.bat` / `关闭线上博物馆.bat`：本地启动与关闭脚本
 - `ASSET_GUIDE.md`：原始大素材放置说明

@@ -19,6 +19,7 @@ export function buildMuseumTour(source, definition = museumTourDefinitions[0]) {
       title: group.title,
       description: group.description,
       background: group.background,
+      hall: group.hall || "",
       index: groupIndex,
       selection: group.selection ? { ...group.selection } : null,
       sourceCategory,
@@ -59,9 +60,22 @@ function createTourStop(tour, group, entry, groupIndex, itemIndex) {
 function resolveTourEntries(source, group) {
   const byId = new Map(source.map((item) => [String(item.id), item]));
   if (Array.isArray(group.stops) && group.stops.length) {
+    const byCode = new Map();
+    for (const item of source) {
+      const code = compactCode(item.code);
+      if (!code) continue;
+      const prev = byCode.get(code);
+      if (!prev || rankTourItem(item) > rankTourItem(prev)) byCode.set(code, item);
+    }
     return group.stops
-      .map((content) => ({ item: byId.get(String(content.itemId)), content }))
-      .filter((entry) => entry.item);
+      .map((content) => {
+        const item = content.itemId != null
+          ? byId.get(String(content.itemId))
+          : byCode.get(compactCode(content.code));
+        return { item, content };
+      })
+      // code 定位的展品只上墙有影像的条目（PDF 档案由展览文本抽屉呈现）
+      .filter((entry) => entry.item && (entry.content.itemId != null || entry.item.kind === "image"));
   }
   if (Array.isArray(group.itemIds) && group.itemIds.length) {
     return group.itemIds
@@ -104,6 +118,12 @@ function tourCandidateScore(item, index) {
 
 function compactCode(code) {
   return String(code || "").replace(/\s+/g, "").toUpperCase();
+}
+
+// 同一档号可能有多条重复记录：优先有缩略图的影像条目，其次取文件较大者
+function rankTourItem(item) {
+  const imageScore = item?.kind === "image" && item?.thumbPath ? 1e12 : 0;
+  return imageScore + (item?.size || 0);
 }
 
 function shortTourTitle(item) {

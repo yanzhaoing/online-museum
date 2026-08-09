@@ -7,6 +7,7 @@ export {
   BufferGeometry,
   CanvasTexture,
   ClampToEdgeWrapping,
+  Color,
   CylinderGeometry,
   DirectionalLight,
   DoubleSide,
@@ -20,21 +21,31 @@ export {
   MeshLambertMaterial,
   MeshPhysicalMaterial,
   MeshStandardMaterial,
+  NormalBlending,
   PCFShadowMap,
+  PCFSoftShadowMap,
   PerspectiveCamera,
   PlaneGeometry,
   PMREMGenerator,
   PointLight,
   Points,
   PointsMaterial,
+  Raycaster,
+  WebGLRenderTarget,
   RectAreaLight,
   RepeatWrapping,
   Scene,
+  SphereGeometry,
   SpotLight,
   SRGBColorSpace,
   TextureLoader,
+  TorusGeometry,
   Vector3,
   WebGLRenderer,
 } from "three";
 export { RectAreaLightUniformsLib } from "three/examples/jsm/lights/RectAreaLightUniformsLib.js";
 export { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+export { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+export { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+export { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+export { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";

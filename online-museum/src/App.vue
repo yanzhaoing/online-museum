@@ -2,9 +2,11 @@
 import { nextTick, onBeforeUnmount, onMounted, provide, ref } from "vue";
 import CatalogSection from "./components/CatalogSection.vue";
 import DetailDialog from "./components/DetailDialog.vue";
+import ExhibitionTextDrawer from "./components/ExhibitionTextDrawer.vue";
 import FeaturedSection from "./components/FeaturedSection.vue";
 import FilterPanel from "./components/FilterPanel.vue";
 import HeroSection from "./components/HeroSection.vue";
+import HighlightsSection from "./components/HighlightsSection.vue";
 import MarqueeStrip from "./components/MarqueeStrip.vue";
 import PreloaderVeil from "./components/PreloaderVeil.vue";
 import ScenesSection from "./components/ScenesSection.vue";
@@ -93,6 +95,7 @@ onBeforeUnmount(() => {
       <FilterPanel />
       <MarqueeStrip />
       <FeaturedSection />
+      <HighlightsSection />
       <TourSection />
       <ScenesSection />
       <CatalogSection />
@@ -101,6 +104,7 @@ onBeforeUnmount(() => {
   </div>
   <DetailDialog />
   <SummaryDialog />
+  <ExhibitionTextDrawer />
   <div class="tour-toast" :class="{ 'is-visible': toastVisible }" role="status" aria-live="polite">
     {{ toast }}
   </div>

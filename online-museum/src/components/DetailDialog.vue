@@ -67,9 +67,11 @@ watch(detailOpen, async (isOpen) => {
           @error="useThumbnailFallback"
           @click="toggleZoom"
         />
-        <div v-else class="pdf-face">
+        <div v-else class="pdf-face detail-pdf-face">
           <strong>PDF 档案</strong>
           <span>{{ displayTitle(detailItem) }}</span>
+          <em>{{ detailItem.code }} · {{ formatBytes(detailItem.size) }}</em>
+          <small>此条目以 PDF 扫描件归档，未生成影像缩略图；可通过右下方「打开原始档案」阅读完整内容</small>
         </div>
       </div>
       <aside class="detail-info">

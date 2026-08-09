@@ -1,11 +1,11 @@
 <script setup>
-import { inject, onMounted, ref } from "vue";
+import { inject, onMounted, ref, watch } from "vue";
 import { useMuseumContext } from "../composables/useMuseumContext";
 import { useHeroField } from "../composables/useHeroField";
 import { useCountUp, useMagnetic } from "../composables/useScrollFx";
 import { displayTitle, fileUrl, previewPath } from "../lib/catalog";
 
-const { heroItems, stats } = useMuseumContext();
+const { heroItems, stats, isDark } = useMuseumContext();
 const heroMedia = ref(null);
 const primaryAction = ref(null);
 const secondaryAction = ref(null);
@@ -35,6 +35,9 @@ onMounted(() => {
   primaryMagnet.attach();
   secondaryMagnet.attach();
 });
+
+// 切换灯光后同步 WebGL 星河的雾色
+watch(isDark, () => hero.setTheme());
 </script>
 
 <template>

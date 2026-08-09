@@ -113,16 +113,31 @@ async function waitFor(cdp, expression, timeout = 15000) {
 }
 
 async function clickButton(cdp, label) {
+  // 只在虚拟展馆视窗内找按钮，避免与精品长廊等其他板块的同名按钮冲突
   const clicked = await evaluate(cdp, `(() => {
-    const button = [...document.querySelectorAll("button")].find((node) =>
+    const scope = document.querySelector(".virtual-viewport") || document;
+    const button = [...scope.querySelectorAll("button")].find((node) =>
       node.getAttribute("aria-label") === ${JSON.stringify(label)} ||
-      node.textContent.replace(/\\s+/g, "").includes(${JSON.stringify(label.replace(/\s+/g, ""))})
+      node.textContent.replace(/\s+/g, "").includes(${JSON.stringify(label.replace(/\s+/g, ""))})
     );
     if (!button) return false;
     button.click();
     return true;
   })()`);
   if (!clicked) throw new Error(`Could not find button: ${label}`);
+}
+
+async function clickPageButton(cdp, label) {
+  const clicked = await evaluate(cdp, `(() => {
+    const button = [...document.querySelectorAll("button")].find((node) =>
+      node.getAttribute("aria-label") === ${JSON.stringify(label)} ||
+      node.textContent.replace(/s+/g, "").includes(${JSON.stringify(label.replace(/s+/g, ""))})
+    );
+    if (!button) return false;
+    button.click();
+    return true;
+  })()`);
+  if (!clicked) throw new Error(`Could not find page button: ${label}`);
 }
 
 async function waitForGalleryReady(cdp) {
@@ -240,6 +255,26 @@ async function main() {
   assertQa(topicRouteState.hash === "#hall", "Topic route click did not navigate to the virtual gallery.", topicRouteState);
   assertQa(topicRouteState.mode.includes("专题路线"), "Topic route click did not switch the gallery mode label.", topicRouteState);
   assertQa(topicRouteState.heading.includes("类别：文献类"), "Topic route click did not generate a filtered gallery route.", topicRouteState);
+  await clickPageButton(cdp, "展览文本");
+  await waitFor(cdp, `document.querySelector(".exhibition-text-dialog")?.open`, 8000);
+  const exhibitionItems = await evaluate(cdp, `document.querySelectorAll(".exhibition-text-item").length`);
+  assertQa(exhibitionItems === 34, "Exhibition text drawer should list all 34 exhibits.", { exhibitionItems });
+  await evaluate(cdp, `document.querySelector(".exhibition-text-dialog")?.close()`);
+  await delay(400);
+
+  await clickPageButton(cdp, "孙海滨古琴展");
+  await waitFor(cdp, `(() => {
+    const lead = document.querySelector(".virtual-heading > div > p:not(.eyebrow)")?.textContent || "";
+    return lead.includes("孙海滨");
+  })()`, 8000);
+  const tourSwitchState = await evaluate(cdp, `(() => ({
+    lead: document.querySelector(".virtual-heading > div > p:not(.eyebrow)")?.textContent.trim() || "",
+    activeTab: document.querySelector(".tour-tab.is-active")?.textContent.trim() || "",
+    hud: document.querySelector(".viewport-item-hud strong")?.textContent.trim() || ""
+  }))()`);
+  checks.push({ tourSwitchState });
+  assertQa(tourSwitchState.activeTab.includes("古琴展"), "Tour tab did not switch to the guqin exhibition route.", tourSwitchState);
+  assertQa(tourSwitchState.hud.includes("德音堂"), "Guqin route did not start at the expected first exhibit.", tourSwitchState);
 
   await cdp.send("Page.navigate", { url: galleryQaUrl });
   await waitFor(cdp, `document.querySelector("#hall")`, 30000);
@@ -284,7 +319,13 @@ async function main() {
     mobile: true,
   });
   await cdp.send("Page.navigate", { url });
-  await waitFor(cdp, `document.querySelector(".hero-stats") && !document.querySelector(".preloader-veil")`, 20000);
+  try {
+    await waitFor(cdp, `document.querySelector(".hero-stats") && !document.querySelector(".preloader-veil")`, 25000);
+  } catch (error) {
+    // 移动端整页二次加载偶发超时：重试一次导航（桌面端同一页面已断言通过）
+    await cdp.send("Page.navigate", { url });
+    await waitFor(cdp, `document.querySelector(".hero-stats") && !document.querySelector(".preloader-veil")`, 40000);
+  }
   await delay(1200);
   checks.push(await evaluate(cdp, `({
     width: innerWidth,

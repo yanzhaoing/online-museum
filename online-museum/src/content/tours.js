@@ -1,3 +1,5 @@
+import { guqinTourDefinition } from "./guqin-tour.js";
+
 export const museumTourDefinitions = [
   {
     id: "collection-highlights",
@@ -43,4 +45,5 @@ export const museumTourDefinitions = [
       },
     ],
   },
+  guqinTourDefinition,
 ];

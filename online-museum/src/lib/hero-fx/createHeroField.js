@@ -8,7 +8,12 @@ export function createHeroField({ THREE, canvas, viewport, items, imageUrl, coun
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x0c0e0b, 0.048);
+  // 雾色跟随页面主题（--paper），避免浅色沙色主题下卡片隐入深色雾
+  const readPaperColor = () => {
+    const value = getComputedStyle(document.body).getPropertyValue("--paper").trim();
+    return value || "#171310";
+  };
+  scene.fog = new THREE.FogExp2(new THREE.Color(readPaperColor()), 0.048);
 
   const camera = new THREE.PerspectiveCamera(46, 1, 0.1, 90);
   camera.position.set(0, 0.2, 15);
@@ -41,14 +46,13 @@ export function createHeroField({ THREE, canvas, viewport, items, imageUrl, coun
   const dustGeometry = new THREE.BufferGeometry();
   dustGeometry.setAttribute("position", new THREE.BufferAttribute(dustPositions, 3));
   const dustMaterial = new THREE.PointsMaterial({
-    color: 0xd7a851,
+    color: 0xc05a44,
     size: 0.06,
     transparent: true,
     opacity: 0.5,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
-  });
-  const dust = new THREE.Points(dustGeometry, dustMaterial);
+  });  const dust = new THREE.Points(dustGeometry, dustMaterial);
   scene.add(dust);
 
   // 藏品卡片
@@ -219,8 +223,27 @@ export function createHeroField({ THREE, canvas, viewport, items, imageUrl, coun
     renderer.dispose();
   }
 
+  // 浅色（香槟沙色）主题下：雾更稀、尘埃用普通混合的沙金；深色主题保持原「金色尘埃」加法发光
+  function applyTheme() {
+    const isDark = document.body.classList.contains("dark");
+    scene.fog.color.set(new THREE.Color(readPaperColor()));
+    scene.fog.density = isDark ? 0.048 : 0.024;
+    if (isDark) {
+      dustMaterial.color.set(0xc05a44);
+      dustMaterial.opacity = 0.5;
+      dustMaterial.blending = THREE.AdditiveBlending;
+    } else {
+      dustMaterial.color.set(0xa6603f);
+      dustMaterial.opacity = 0.4;
+      dustMaterial.blending = THREE.NormalBlending;
+    }
+    // 运行时切换 blending 需要标记材质更新才会生效
+    dustMaterial.needsUpdate = true;
+  }
+
   kick();
-  return { pause, resume, setPointer, dispose };
+  applyTheme();
+  return { pause, resume, setPointer, setTheme: applyTheme, dispose };
 }
 
 /** 确定性伪随机（同一 index/salt 恒定），避免每次载入布局跳动。 */

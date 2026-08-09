@@ -146,6 +146,7 @@ export function useImmersiveGallery(options) {
       exposeQa();
     } catch (error) {
       if (isDisposed || loadToken !== sceneLoadToken) return;
+      if (qaEnabled) window.__sceneFail = String(error?.stack || error);
       sceneInstance?.dispose();
       sceneInstance = null;
       webglFailed.value = true;
@@ -176,6 +177,12 @@ export function useImmersiveGallery(options) {
     window.__museumGalleryQa = {
       token: qaToken,
       getActiveArtworkProjection: () => sceneInstance?.getActiveArtworkProjection() || { ready: false, reason: "gallery scene is not ready" },
+      getSceneInfo: () => sceneInstance?.getSceneInfo() || [],
+      probePixel: (points) => sceneInstance?.probePixel(points) || [],
+      captureFrames: (count) => sceneInstance?.captureFrames(count || 1) || 0,
+      drainFrames: () => sceneInstance?.drainFrames() || [],
+      readFrame: () => sceneInstance?.readFrame() || null,
+      setViewerMode: (mode) => { viewerMode.value = mode; },
       getState: () => ({
         ready: canvasReady.value,
         loading: sceneLoading.value,

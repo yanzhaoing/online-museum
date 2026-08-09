@@ -31,10 +31,10 @@ export function placementFor(item, index, zones) {
     return { side: "right", x: GALLERY_SPACE.artworkX, y: 2.42, z, rotationY: -Math.PI / 2, localIndex };
   }
   if (item.galleryLayout === "case") {
-    return { side: "case", x: localIndex % 2 ? 1.6 : -1.6, y: 1.02, z, rotationY: 0, localIndex };
+    return { side: "case", x: localIndex % 2 ? 2.55 : -2.55, y: 1.02, z, rotationY: 0, localIndex };
   }
   if (item.galleryLayout === "plinth") {
-    return { side: "plinth", x: localIndex % 2 ? 1.95 : -1.95, y: 1.74, z, rotationY: 0, localIndex };
+    return { side: "plinth", x: localIndex % 2 ? 2.3 : -2.3, y: 1.67, z, rotationY: 0, localIndex };
   }
   return { side: "left", x: -5.88, y: 2.28, z, rotationY: Math.PI / 2, localIndex };
 }
