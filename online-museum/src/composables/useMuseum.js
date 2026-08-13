@@ -3,6 +3,7 @@ import {
   catalogItems,
   countBy,
   displayTitle,
+  docentText,
   previewPath,
   relatedItems,
   topEntries,
@@ -28,6 +29,13 @@ export function useMuseum() {
   const defaultMuseumTour = museumTours[0];
   const virtualGallery = toImmersiveGallery(defaultMuseumTour);
 
+  // 条目 → 游线立牌介绍索引：后注册的策展游线（古琴展）覆盖通用游线，
+  // 让详情弹窗「导览词」与展厅立牌同文（单一内容源）
+  const tourIntroByItemId = new Map();
+  for (const tour of museumTours) {
+    for (const stop of tour.stops) tourIntroByItemId.set(stop.itemId, stop.description);
+  }
+
   const query = ref("");
   const category = ref(ALL);
   const collector = ref(ALL);
@@ -41,6 +49,7 @@ export function useMuseum() {
   const suggestionsOpen = ref(false);
   const detailItem = ref(null);
   const detailOpen = ref(false);
+  const detailGuideText = ref("");
   const summaryOpen = ref(false);
   const exhibitionTextOpen = ref(false);
   const exhibitionSlides = buildExhibitionSlides(items);
@@ -203,17 +212,26 @@ export function useMuseum() {
     return viewed.value.includes(id);
   }
 
-  function openDetail(id) {
+  // guideText：从展厅立牌/精品路线进入时携带该处介绍原文，保证「导览词」与来源一致
+  function openDetail(id, guideText = "") {
     const item = byId.value.get(id);
     if (!item) return;
     markViewed(id);
     detailItem.value = item;
+    detailGuideText.value = typeof guideText === "string" ? guideText.trim() : "";
     detailOpen.value = true;
   }
 
   function closeDetail() {
     detailOpen.value = false;
   }
+
+  // 「导览词」解析顺序：当前游线立牌原文 → 任一游线策展文案 → 与立牌相同的通用介绍
+  const detailGuide = computed(() => {
+    const item = detailItem.value;
+    if (!item) return "";
+    return detailGuideText.value || tourIntroByItemId.get(item.id) || docentText(item);
+  });
 
   function openSummary() {
     summaryOpen.value = true;
@@ -391,6 +409,7 @@ export function useMuseum() {
     suggestionsOpen,
     detailItem,
     detailOpen,
+    detailGuide,
     summaryOpen,
     toast,
     toastVisible,

@@ -10,7 +10,7 @@ function copyMuseumStaticAssets() {
       const museumOutDir = resolve(import.meta.dirname, "dist/online-museum");
       mkdirSync(museumOutDir, { recursive: true });
 
-      for (const dir of ["data", "thumbs", "screenshots", "textures"]) {
+      for (const dir of ["data", "thumbs", "screenshots", "textures", "audio"]) {
         const source = resolve(import.meta.dirname, "online-museum", dir);
         if (!existsSync(source)) continue;
         cpSync(source, resolve(museumOutDir, dir), { recursive: true });

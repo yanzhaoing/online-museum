@@ -3,6 +3,7 @@ import { computed } from "vue";
 import { useMuseumContext } from "../composables/useMuseumContext";
 import { buildCodeIndex, CHINESE_BACKDROP_CODE, sunHaibinExhibition } from "../lib/exhibition";
 import { fileUrl, previewPath } from "../lib/catalog";
+import PhotoRoute from "./PhotoRoute.vue";
 
 const { items, chooseTour, scrollToSection } = useMuseumContext();
 
@@ -58,6 +59,8 @@ function enterExhibition() {
         <small>孙海滨民间收藏数字展</small>
       </div>
     </div>
+
+    <PhotoRoute />
 
     <div class="guqin-halls">
       <button

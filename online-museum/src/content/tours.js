@@ -10,9 +10,9 @@ export const museumTourDefinitions = [
     groups: [
       {
         id: "circulation-records",
-        title: "票据与日常流通",
-        description: "民国时期各类收据、证照与票据，记录社会经济活动与民众生活。",
-        background: "从金额、抬头、印记和编号进入，观察地方商业秩序与日常往来。",
+        title: "票据与证照",
+        description: "票据、证照与日常凭证，记录社会流通、教育经历与个人身份。",
+        background: "从抬头、印记、照片、日期和编号进入，观察一张纸如何连接个人经历与公共制度。",
         selection: { category: "票据类", limit: 6 },
       },
       {

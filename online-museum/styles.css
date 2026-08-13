@@ -5399,6 +5399,281 @@ body.dark .masterpiece-backdrop::after {
   font-size: 9px;
 }
 
+/* ---------- 2D 精品路线 ---------- */
+.photo-route {
+  position: relative;
+  margin: 34px 0 30px;
+  padding: 22px;
+  border: 1px solid rgba(103, 78, 51, 0.22);
+  background: color-mix(in srgb, var(--paper) 82%, transparent);
+  box-shadow: 0 22px 70px rgba(34, 25, 17, 0.14);
+}
+
+.photo-route-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 16px;
+  padding: 30px 28px 26px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, rgba(22, 17, 12, 0.88), rgba(22, 17, 12, 0.45) 62%, rgba(22, 17, 12, 0.2)), url("./textures/hall/08-corridor.png") center 64% / cover no-repeat;
+}
+
+.photo-route-heading .eyebrow { color: #e6bd7a; }
+.photo-route-heading h3 { color: #fff8ec; }
+.photo-route-heading p:not(.eyebrow) { color: rgba(245, 234, 216, 0.85); }
+.photo-route-heading .photo-route-count { color: #e6bd7a; }
+
+.photo-route-heading h3 {
+  margin: 4px 0 7px;
+  font-size: clamp(26px, 3vw, 42px);
+  letter-spacing: 0;
+}
+
+.photo-route-heading p:not(.eyebrow) {
+  max-width: 680px;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.photo-route-count {
+  flex: 0 0 auto;
+  padding-bottom: 8px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.photo-route-stage {
+  position: relative;
+  min-height: 620px;
+  overflow: hidden;
+  isolation: isolate;
+  background: #30261e;
+  box-shadow: inset 0 0 0 1px rgba(255, 247, 233, 0.18), 0 14px 36px rgba(28, 21, 16, 0.2);
+}
+
+.photo-route-stage::before {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  content: "";
+  background: linear-gradient(180deg, rgba(12, 10, 8, 0.08), rgba(12, 10, 8, 0.42));
+  pointer-events: none;
+}
+
+.photo-route-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  animation: photo-route-bg-in 0.55s ease both;
+}
+
+@keyframes photo-route-bg-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.photo-route-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 42%, transparent 16%, rgba(9, 8, 7, 0.42) 100%);
+  mix-blend-mode: multiply;
+}
+
+.photo-route-path {
+  position: absolute;
+  z-index: 2;
+  left: 8%;
+  right: 7%;
+  bottom: 15%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(218, 180, 103, 0.85) 12%, rgba(218, 180, 103, 0.18) 88%, transparent);
+  transform: rotate(-2deg);
+  opacity: 0.8;
+}
+
+.photo-route-stop {
+  position: absolute;
+  top: var(--stop-top);
+  left: var(--stop-left);
+  z-index: 2;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  width: 142px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #fff8ec;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  transition: z-index 180ms ease, transform 220ms ease;
+}
+
+.photo-route-stop:hover,
+.photo-route-stop:focus-visible,
+.photo-route-stop.is-active {
+  z-index: 4;
+  transform: translate(-50%, -50%) scale(1.08);
+}
+
+.photo-route-stop-pin {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(255, 245, 224, 0.8);
+  border-radius: 50%;
+  background: rgba(35, 27, 20, 0.86);
+  box-shadow: 0 0 0 6px rgba(183, 71, 48, 0.16), 0 8px 20px rgba(0, 0, 0, 0.25);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.photo-route-stop.is-active .photo-route-stop-pin {
+  border-color: #f3c579;
+  background: var(--accent);
+  box-shadow: 0 0 0 8px rgba(183, 71, 48, 0.23), 0 0 24px rgba(243, 197, 121, 0.55);
+}
+
+.photo-route-stop-card {
+  display: grid;
+  width: 142px;
+  overflow: hidden;
+  border: 4px solid #f5ead8;
+  background: #f5ead8;
+  color: var(--ink);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.34);
+  transform: rotate(var(--route-tilt, -2deg));
+  transition: box-shadow 220ms ease, transform 220ms ease;
+}
+
+.photo-route-stop:nth-of-type(3n) .photo-route-stop-card { --route-tilt: 2deg; }
+.photo-route-stop:nth-of-type(4n) .photo-route-stop-card { --route-tilt: -1deg; }
+.photo-route-stop.is-active .photo-route-stop-card { box-shadow: 0 20px 42px rgba(0, 0, 0, 0.48); transform: rotate(0deg); }
+
+.photo-route-stop-image {
+  display: block;
+  aspect-ratio: 1.12;
+  overflow: hidden;
+  background: #d9c6aa;
+}
+
+.photo-route-stop-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 420ms ease, filter 420ms ease;
+}
+
+.photo-route-stop:hover img,
+.photo-route-stop:focus-visible img,
+.photo-route-stop.is-active img { transform: scale(1.06); filter: saturate(1.08) contrast(1.04); }
+
+.photo-route-stop-label {
+  display: grid;
+  gap: 3px;
+  padding: 7px 8px 8px;
+  text-align: left;
+}
+
+.photo-route-stop-label small { color: #8d6544; font-size: 9px; }
+.photo-route-stop-label strong { overflow: hidden; font-size: 11px; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+
+.photo-route-intro {
+  position: absolute;
+  left: 50%;
+  bottom: 34px;
+  z-index: 3;
+  display: grid;
+  gap: 6px;
+  padding: 14px 22px;
+  border: 1px solid rgba(247, 230, 201, 0.4);
+  background: rgba(27, 23, 19, 0.72);
+  color: #fff8ec;
+  text-align: center;
+  transform: translateX(-50%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  pointer-events: none;
+}
+
+.photo-route-intro strong { font-size: 17px; letter-spacing: 0.08em; }
+.photo-route-intro span { color: rgba(255, 248, 236, 0.72); font-size: 12px; }
+
+.photo-route-focus {
+  position: absolute;
+  right: 22px;
+  bottom: 22px;
+  z-index: 3;
+  width: min(390px, calc(100% - 44px));
+  padding: 19px 20px 18px;
+  border: 1px solid rgba(247, 230, 201, 0.44);
+  background: rgba(27, 23, 19, 0.82);
+  color: #fff8ec;
+  box-shadow: 0 20px 52px rgba(0, 0, 0, 0.36);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.photo-route-focus-meta { display: flex; justify-content: space-between; gap: 12px; color: #e6bd7a; font-size: 11px; }
+.photo-route-focus h4 { margin: 9px 0 7px; font-size: 23px; }
+.photo-route-focus p { display: -webkit-box; overflow: hidden; margin: 0; color: rgba(255, 248, 236, 0.78); font-size: 13px; line-height: 1.65; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.photo-route-actions { display: flex; gap: 9px; margin-top: 14px; }
+.photo-route-actions button { min-height: 35px; padding: 0 14px; }
+
+.photo-route-rail {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 15px;
+  padding-top: 7px;
+}
+
+.photo-route-rail-item {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.photo-route-rail-item span { display: grid; place-items: center; width: 25px; height: 25px; border: 1px solid rgba(103, 78, 51, 0.25); border-radius: 50%; background: var(--paper); font-size: 9px; }
+.photo-route-rail-item small { overflow: hidden; width: 100%; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.photo-route-rail-item.is-active { color: var(--accent); font-weight: 700; }
+.photo-route-rail-item.is-active span { border-color: var(--accent); background: var(--accent); color: #fff8ec; }
+.photo-route-progress { position: absolute; top: 19px; left: 3%; right: 3%; height: 1px; background: rgba(103, 78, 51, 0.2); }
+.photo-route-progress i { display: block; height: 100%; background: var(--accent); transition: width 300ms ease; }
+
+@media (max-width: 900px) {
+  .photo-route { padding: 16px; }
+  .photo-route-heading { align-items: start; flex-direction: column; gap: 8px; }
+  .photo-route-stage { min-height: 650px; background-position: 48% center; }
+  .photo-route-stop { width: 108px; }
+  .photo-route-stop-card { width: 108px; }
+  .photo-route-stop-label { padding: 5px 6px 6px; }
+  .photo-route-stop-label strong { font-size: 9px; }
+  .photo-route-stop-label small { font-size: 8px; }
+  .photo-route-focus { right: 14px; bottom: 14px; width: min(350px, calc(100% - 28px)); }
+  .photo-route-rail { overflow-x: auto; grid-template-columns: repeat(8, minmax(74px, 1fr)); padding-bottom: 4px; }
+  .photo-route-progress { display: none; }
+}
+
 /* ---------- 展览文本抽屉 ---------- */
 .exhibition-text-dialog {
   width: min(960px, calc(100vw - 28px));

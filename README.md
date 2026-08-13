@@ -32,8 +32,10 @@ http://127.0.0.1:8765/online-museum/index.html
 - `online-museum/styles.css`：视觉与动效
 - `online-museum/data/catalog.js`：馆藏目录数据
 - `online-museum/thumbs/`：缩略图素材（精品长廊与特展背景直接虚化复用馆藏字画《管平湖作品》缩略图）
+- `online-museum/audio/`：古琴展背景音乐（Karplus-Strong 拨弦合成，`npm run generate:guqin-bgm` 重新生成）
 - `online-museum/src/content/`：导览与特展策展文案（`tours.js` 主题导览；`exhibition-sunhaibin.js` 孙海滨古琴收藏数字展，展品按档号关联目录条目）
-- `online-museum/scripts/`：视觉 QA 截图脚本（`qa_chrome.cjs` 全流程画廊/特展回归（npm run qa:visual）、`qa_console.cjs` 控制台零错误抽查、`qa_pdf_dialog.cjs` PDF 详情弹窗抽查、`qa_gallery_pixels.cjs` 3D 展厅像素/渲染抽查、`qa_hero_pixels.cjs` 首屏 GL 抽查）
+- `online-museum/textures/`：展厅贴图与 2D 精品路线的整套展馆背景（`hall/` 下 8 张，按序厅/文献厅/器物厅/字画厅/走廊分工，AI 生成提示词见 `design-references/hall-photo-set/`）
+- `online-museum/scripts/`：视觉 QA 截图脚本（`qa_chrome.cjs` 全流程画廊/特展回归（npm run qa:visual）、`qa_photo_route.cjs` 2D 精品路线按厅切景抽查（npm run qa:photoroute）、`qa_console.cjs` 控制台零错误抽查、`qa_pdf_dialog.cjs` PDF 详情弹窗抽查、`qa_gallery_pixels.cjs` 3D 展厅像素/渲染抽查、`qa_hero_pixels.cjs` 首屏 GL 抽查）
 - `vite.config.js` / `package.json`：Vite + Vue 开发与静态构建配置
 - `启动线上博物馆.bat` / `关闭线上博物馆.bat`：本地启动与关闭脚本
 - `ASSET_GUIDE.md`：原始大素材放置说明

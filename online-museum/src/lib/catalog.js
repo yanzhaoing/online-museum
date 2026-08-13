@@ -76,7 +76,7 @@ export function stableVariant(item, length, salt = 0) {
 
 export function topicTitle(name) {
   return {
-    "票据类": "票据与日常流通",
+    "票据类": "票据与证照",
     "文献类": "纸本文献与地方记录",
     "字画类": "笔墨手迹与审美线索",
     "器物类": "器物形态与使用场景",
@@ -135,9 +135,14 @@ export function kindInterpretation(item) {
   return variants[stableVariant(item, variants.length, 17)];
 }
 
-export function docentText(item) {
-  const folder = String(item?.folder || "").split(/[\\/]/).slice(-2).join(" / ");
-  return `编号 ${item?.code || "未编号"}，归入${item?.category || "未分类"}，登记来源：${item?.collector || "馆藏"}。档案目录为${folder || "馆藏数字档案"}。${categoryInterpretation(item)}${kindInterpretation(item)}`;
+// 「导览词」与展厅立牌同文：优先所在游线的策展文案，兜底用与立牌兜底相同的通用介绍
+export function docentText(item, guideText = "") {
+  if (!item) return "";
+  return guideText || item.description || item.detailedDescription || defaultItemDescription(item);
+}
+
+export function defaultItemDescription(item) {
+  return `这件展品来自${item?.collector || "馆藏"}，编号 ${item?.code || "未编号"}。${categoryInterpretation(item)}${kindInterpretation(item)}`;
 }
 
 export function relatedItems(source, item) {

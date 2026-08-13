@@ -8,7 +8,9 @@
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1 --port 8765",
     "test:tours": "node online-museum/scripts/verify_tours.mjs",
-    "qa:visual": "node online-museum/scripts/qa_chrome.cjs"
+    "generate:guqin-bgm": "node online-museum/scripts/generate_guqin_bgm.mjs",
+    "qa:visual": "node online-museum/scripts/qa_chrome.cjs",
+    "qa:photoroute": "node online-museum/scripts/qa_photo_route.cjs"
   },
   "dependencies": {
     "three": "^0.184.0",

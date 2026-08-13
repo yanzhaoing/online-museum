@@ -2,13 +2,13 @@
 import { computed, nextTick, ref, watch } from "vue";
 import PdfThumb from "./PdfThumb.vue";
 import { useMuseumContext } from "../composables/useMuseumContext";
-import { displayTitle, docentText, fileUrl, formatBytes, previewPath } from "../lib/catalog";
+import { displayTitle, fileUrl, formatBytes, previewPath } from "../lib/catalog";
 
 const dialog = ref(null);
 const zoomed = ref(false);
 const previewSrc = ref("");
 const originalFailed = ref(false);
-const { detailItem, detailOpen, closeDetail, openDetail, relatedItems, showToast } = useMuseumContext();
+const { detailItem, detailOpen, detailGuide, closeDetail, openDetail, relatedItems, showToast } = useMuseumContext();
 const related = computed(() => detailItem.value ? relatedItems(detailItem.value) : []);
 
 function toggleZoom() {
@@ -87,7 +87,7 @@ watch(detailOpen, async (isOpen) => {
         <section class="docent-panel">
           <div>
             <h3>导览词</h3>
-            <p>{{ docentText(detailItem) }}</p>
+            <p>{{ detailGuide }}</p>
           </div>
         </section>
         <section class="related-panel">

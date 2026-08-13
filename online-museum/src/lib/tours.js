@@ -1,7 +1,15 @@
 import { museumTourDefinitions } from "../content/tours.js";
-import { categoryInterpretation, kindInterpretation, stableVariant, topicTitle } from "./catalog.js";
+import { categoryInterpretation, defaultItemDescription, kindInterpretation, stableVariant, topicTitle } from "./catalog.js";
 
 const LOW_PRIORITY_COLLECTORS = new Set(["给编委会的"]);
+
+const TOUR_COPY_OVERRIDES = new Map([
+  ["MJCP-ZHJ-PJ.03-0023", {
+    title: "毕业证书 · 0023",
+    description: "这件影像档案来自朱海君，档号 MJCP-ZHJ-PJ.03-0023。证书记录一段具体的教育经历，可从版式、印章、照片与日期细节进入观看。",
+    background: "先看证书整体，再放大校印、姓名与日期等信息；这些细节帮助判断它的时间与使用场景。",
+  }],
+]);
 
 export { museumTourDefinitions };
 
@@ -44,15 +52,16 @@ export function buildMuseumTour(source, definition = museumTourDefinitions[0]) {
 
 function createTourStop(tour, group, entry, groupIndex, itemIndex) {
   const { item, content } = entry;
+  const override = TOUR_COPY_OVERRIDES.get(compactCode(item.code)) || {};
   return {
     id: `${tour.id}:${group.id}:${item.id}`,
     itemId: item.id,
     groupId: group.id,
     groupIndex,
     indexInGroup: itemIndex,
-    title: content.title || item.tourTitle || shortTourTitle(item),
-    description: content.description || item.description || item.detailedDescription || defaultItemDescription(item),
-    background: content.background || item.backgroundStory || item.background || group.background || "",
+    title: content.title || override.title || item.tourTitle || shortTourTitle(item),
+    description: content.description || override.description || item.description || item.detailedDescription || defaultItemDescription(item),
+    background: content.background || override.background || item.backgroundStory || item.background || group.background || "",
     item,
   };
 }
@@ -131,6 +140,3 @@ function shortTourTitle(item) {
   return `${topicTitle(item?.category || "藏品")} · ${suffix}`;
 }
 
-function defaultItemDescription(item) {
-  return `这件展品来自${item?.collector || "馆藏"}，编号 ${item?.code || "未编号"}。${categoryInterpretation(item)}${kindInterpretation(item)}`;
-}

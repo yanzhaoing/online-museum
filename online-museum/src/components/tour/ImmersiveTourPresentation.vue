@@ -1,10 +1,11 @@
 <script setup>
-import { computed } from "vue";
+import { computed, onUnmounted, watch } from "vue";
 import CategoryScene from "../CategoryScene.vue";
 import TourInfoPanel from "./TourInfoPanel.vue";
 import { useMuseumContext } from "../../composables/useMuseumContext";
 import { useImmersiveGallery } from "../../composables/useImmersiveGallery";
 import { useTourNavigation } from "../../composables/useTourNavigation";
+import { useGuqinBgm } from "../../composables/useGuqinBgm";
 import { placementFor } from "../../lib/immersive-gallery/layout";
 
 const props = defineProps({
@@ -31,8 +32,16 @@ const immersive = useImmersiveGallery({
 });
 
 function openActiveDetail() {
-  if (navigation.activeItem.value) openDetail(navigation.activeItem.value.id);
+  const active = navigation.activeItem.value;
+  if (active) openDetail(active.id, active.galleryIntro);
 }
+
+// 古琴展专属背景音乐：进入「孙海滨古琴展」游线自动尝试播放，切走即暂停；
+// 被浏览器自动播放策略拦截时，控制区保留「琴音」按钮供手动开启。
+const bgm = useGuqinBgm();
+const isGuqinTour = computed(() => selectedTourId.value === "guqin-exhibition" && !activeFilters.length);
+watch(isGuqinTour, (on) => { if (on) bgm.play(); else bgm.pause(); }, { immediate: true });
+onUnmounted(() => bgm.pause());
 </script>
 
 <template>
@@ -49,6 +58,16 @@ function openActiveDetail() {
         </button>
         <button class="ghost-action" type="button" @click="navigation.routeMapOpen.value = !navigation.routeMapOpen.value">导览图</button>
         <button class="ghost-action" type="button" @click="openExhibitionText">展览文本</button>
+        <button
+          v-if="isGuqinTour"
+          class="ghost-action"
+          :class="{ 'is-live': bgm.state.playing }"
+          type="button"
+          :aria-pressed="bgm.state.playing"
+          @click="bgm.toggle"
+        >
+          {{ bgm.state.playing ? "关闭琴音" : "播放琴音" }}
+        </button>
       </div>
     </div>
 
