@@ -128,7 +128,9 @@ export async function createGalleryScene(options) {
     artwork.userData.routeIndex = index;
     artwork.receiveShadow = true;
     if (placement.side === "case") {
-      artwork.position.y = 1.02;
+      // 展柜底座顶面为 0.75m；展品连同画框必须完整位于玻璃罩净空内。
+      // 画框最低点留在 0.77m 展柜沿口之上，避免纵向图片按真实比例缩放后再次插入底座。
+      artwork.position.y = 1.43;
     } else if (placement.side === "plinth") {
       // 展台（器物类）展品：无画框的立牌，底部贴展台面（展台顶 1.12），
       // 避免"展品夹在画框与展台两块板之间、画框悬空"的视觉
@@ -143,7 +145,9 @@ export async function createGalleryScene(options) {
       frame.position.copy(artwork.position);
       frame.rotation.copy(artwork.rotation);
       frame.userData.routeIndex = index;
+      let framePartIndex = 0;
       frame.traverse((object) => {
+        if (object.isMesh) object.name = `frame-part-${item.id}-${framePartIndex++}`;
         // 玻璃反光等叠加材质不投影
         if (object.material?.blending === THREE.AdditiveBlending) return;
         object.castShadow = true;
@@ -181,7 +185,8 @@ export async function createGalleryScene(options) {
     label.position.set(placement.x, placement.y - height / 2 - 0.52, placement.z);
     label.rotation.y = placement.rotationY;
     if (placement.side === "case") {
-      label.position.set(placement.x, 0.74, placement.z + 0.72);
+      // 展签贴在柜体正面中央，不再与玻璃底框/展品重叠。
+      label.position.set(placement.x, 0.38, placement.z + 0.771);
       label.rotation.y = 0;
     } else if (placement.side === "plinth") {
       // 展台展签：立在展台前方地面（宽 1.08 完全在展台外，不高出基座、不嵌入），
@@ -242,16 +247,16 @@ export async function createGalleryScene(options) {
       envMapIntensity: 0.25,
     });
     primitives.addBox("case-base", [2.36, 0.74, 1.52], [placement.x, 0.38, placement.z], base, { parent: routeGroup });
-    // 玻璃罩：必须完整包住展品（展品 1.08×0.78 居中安装，玻璃加高到 0.9 覆盖顶底）
-    primitives.addBox("case-glass", [2.42, 0.9, 1.56], [placement.x, 0.99, placement.z], glass, { parent: routeGroup, castShadow: false, receiveShadow: false });
-    // 底座与玻璃交接处的细铣线 + 玻璃顶收口：方盒变“展柜结构”（带微小倒角）
-    addBeveledBox("case-rim", [2.3, 0.05, 1.5], [placement.x, 0.93, placement.z], caseRimMat, { parent: routeGroup, castShadow: false }, 0.012);
-    addBeveledBox("case-top-rim", [2.06, 0.05, 1.28], [placement.x, 1.44, placement.z], caseRimMat, { parent: routeGroup, castShadow: false }, 0.012);
-    // 柜内柔和展品光：贴玻璃后壁、尺寸收进玻璃内，只衬展品轮廓（纯叠加，不溢出柜外、不遮展品）
+    // 玻璃罩净空 0.75m—2.05m，足以容纳竖幅画框及激活态 1.08 倍缩放。
+    primitives.addBox("case-glass", [2.42, 1.3, 1.56], [placement.x, 1.4, placement.z], glass, { parent: routeGroup, castShadow: false, receiveShadow: false });
+    // 底座与玻璃交接处仅保留低位细铣线；取消旧版悬空顶框，
+    // 避免远景看成浮空搁板，也彻底消除竖幅展品与顶框穿插。
+    addBeveledBox("case-rim", [2.3, 0.03, 1.5], [placement.x, 0.755, placement.z], caseRimMat, { parent: routeGroup, castShadow: false }, 0.008);
+    // 柜内柔光落在底板上，不能横穿竖立展品。
     const insideGlow = primitives.glowPlane(1.6, 0.5, 0xffe6bd, 0.11);
     insideGlow.name = "case-glow";
     insideGlow.rotation.x = -Math.PI / 2;
-    insideGlow.position.set(placement.x, 1.28, placement.z - 0.02);
+    insideGlow.position.set(placement.x, 0.785, placement.z - 0.02);
     routeGroup.add(insideGlow);
     // 展柜与地面的接触阴影
     const contact = primitives.contactShadowPlane(2.5, 1.85, 0.24);
@@ -310,28 +315,29 @@ export async function createGalleryScene(options) {
     material.map = texture;
     material.emissiveMap = texture;
     material.needsUpdate = true;
-    // 展柜/展台中的实物展品：按图片真实宽高比重设立幅。
-    // 竖图（印谱、册页、琴谱）不再被压进横框，避免横向拉伸、看起来“躺倒”；
-    // 高度保持不变，宽度按比例收窄，画框同步等比缩放。
+    // 所有展品按图片真实宽高比装框，避免墙面、展柜和展台出现拉伸错模。
     const placement = placements.get(index);
-    if (!placement || (placement.side !== "case" && placement.side !== "plinth")) return;
+    if (!placement) return;
     const image = texture.image;
     if (!image?.width || !image?.height) return;
     const artwork = artworkMeshes.get(index);
     if (!artwork) return;
     const { width: baseW, height: baseH } = artworkSize(route[index]);
     const aspect = image.width / image.height;
-    const maxW = placement.side === "case" ? 1.66 : 1.8;
-    const minW = 0.44;
-    const newW = Math.min(maxW, Math.max(minW, baseH * aspect));
-    if (Math.abs(newW - baseW) < 0.02) return;
+    const maxW = placement.side === "case" ? 1.66 : baseW;
+    const maxH = placement.side === "case" ? 0.82 : baseH;
+    const boxAspect = maxW / maxH;
+    const newW = aspect >= boxAspect ? maxW : maxH * aspect;
+    const newH = aspect >= boxAspect ? maxW / aspect : maxH;
+    if (Math.abs(newW - baseW) < 0.02 && Math.abs(newH - baseH) < 0.02) return;
     artwork.geometry?.dispose?.();
-    artwork.geometry = new THREE.PlaneGeometry(newW, baseH);
+    artwork.geometry = new THREE.PlaneGeometry(newW, newH);
+    if (placement.side === "plinth") artwork.position.y = 1.14 + newH / 2;
     const frame = frameMeshes.get(index);
     if (frame) {
       // 基础缩放存入 userData，与 active 展品的放大动画相乘，互不覆盖
-      frame.userData.baseScale = { x: newW / baseW, y: 1, z: 1 };
-      frame.scale.set(newW / baseW, 1, 1);
+      frame.userData.baseScale = { x: newW / baseW, y: newH / baseH, z: 1 };
+      frame.scale.set(newW / baseW, newH / baseH, 1);
     }
   }
 
@@ -367,12 +373,12 @@ export async function createGalleryScene(options) {
       position.x = close ? placement.x + direction * 2.1 : direction * -0.22;
       if (close) position.set(position.x, placement.y, placement.z);
     } else if (placement.side === "case") {
-      position.set(close ? placement.x : placement.x * 0.16, close ? 1.08 : 1.72, placement.z + (close ? 1.15 : 2.8));
+      position.set(close ? placement.x : placement.x * 0.16, close ? 1.48 : 1.72, placement.z + (close ? 1.32 : 2.8));
     } else if (placement.side === "plinth") {
       position.set(close ? placement.x : placement.x * 0.18, close ? placement.y : 1.72, placement.z + (close ? 1.08 : 2.8));
     }
     const target = new THREE.Vector3(placement.x, placement.y, placement.z);
-    if (placement.side === "case") target.set(close ? placement.x : placement.x * 0.72, close ? 1.02 : 0.96, placement.z);
+    if (placement.side === "case") target.set(close ? placement.x : placement.x * 0.72, close ? 1.43 : 1.16, placement.z);
     if (placement.side === "plinth") target.y = 1.52;
     if (!close && wall) {
       target.x = placement.x * 0.58;
@@ -405,7 +411,10 @@ export async function createGalleryScene(options) {
     camera.updateProjectionMatrix();
     camera.lookAt(cameraTarget);
     interactives.forEach((object) => {
-      const zoom = object.userData.routeIndex === state.activeIndex ? 1.08 : 1;
+      const objectPlacement = placements.get(object.userData.routeIndex);
+      // 展柜净空是固定的，选中时再放大会把高幅画框推进玻璃罩；改由镜头和材质承担反馈。
+      const activeZoom = objectPlacement?.side === "case" ? 1 : 1.08;
+      const zoom = object.userData.routeIndex === state.activeIndex ? activeZoom : 1;
       const base = object.userData.baseScale || null;
       const targetX = base ? zoom * base.x : zoom;
       const targetY = base ? zoom * base.y : zoom;

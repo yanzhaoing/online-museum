@@ -17,6 +17,68 @@
   font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", system-ui, sans-serif;
 }
 
+/* ---------- 甲方整改：真实藏品 2D 互动展厅 ---------- */
+.photo-route-heading-actions { display:grid; justify-items:end; gap:10px; flex:0 0 auto; }
+.photo-route-sound { display:inline-flex; align-items:center; gap:8px; min-height:38px; padding:0 14px; border:1px solid rgba(230,189,122,.58); border-radius:999px; background:rgba(20,16,13,.68); color:#f3d59f; font:inherit; font-size:12px; cursor:pointer; backdrop-filter:blur(10px); }
+.photo-route-sound.is-playing { border-color:#f0c77f; background:rgba(144,62,42,.72); box-shadow:0 0 24px rgba(230,189,122,.22); }
+.photo-route-stage { min-height:680px; outline:none; background:#201710; }
+.photo-route-stage:focus-visible { box-shadow:inset 0 0 0 2px #e6bd7a,0 14px 36px rgba(28,21,16,.2); }
+.photo-route-stage::before { z-index:1; background:linear-gradient(180deg,rgba(11,8,6,.2),transparent 28%,rgba(11,8,6,.48)),linear-gradient(90deg,rgba(15,10,7,.2),transparent 32%,rgba(15,10,7,.08)); }
+.photo-route-bg { transform:scale(1.015); transition:filter 520ms ease,transform 760ms cubic-bezier(.2,.75,.2,1); }
+.photo-route-stage.is-near .photo-route-bg { filter:brightness(.84) blur(.6px); transform:scale(1.025); }
+.photo-route-light { position:absolute; inset:0; z-index:1; background:radial-gradient(circle at 50% 39%,rgba(255,220,164,.18),transparent 40%),radial-gradient(circle at 14% 50%,rgba(255,208,132,.13),transparent 26%); pointer-events:none; }
+.photo-route-location { position:absolute; top:22px; left:24px; z-index:6; display:grid; gap:3px; padding:11px 15px; border-left:2px solid #e6bd7a; background:rgba(22,16,12,.7); color:#fff8ec; box-shadow:0 12px 32px rgba(0,0,0,.2); backdrop-filter:blur(12px); }
+.photo-route-location span { color:#e6bd7a; font-size:10px; letter-spacing:.08em; }
+.photo-route-location strong { font-size:14px; font-weight:600; }
+.photo-route-group-view,.photo-route-near-view { position:absolute; inset:82px 28px 106px; z-index:3; }
+.photo-route-group-view { display:grid; grid-template-columns:minmax(190px,.62fr) minmax(0,1.9fr); align-items:center; gap:clamp(24px,4vw,58px); animation:gallery-group-in 520ms cubic-bezier(.2,.75,.2,1) both; }
+@keyframes gallery-group-in { from{opacity:0;transform:translateY(14px) scale(.98)} to{opacity:1;transform:none} }
+.photo-route-group-copy { align-self:end; margin-bottom:12px; padding:20px; border:1px solid rgba(247,230,201,.34); background:rgba(25,18,13,.78); color:#fff8ec; box-shadow:0 18px 48px rgba(0,0,0,.3); backdrop-filter:blur(14px); }
+.photo-route-group-copy small { color:#e6bd7a; font-size:10px; letter-spacing:.12em; }
+.photo-route-group-copy h4 { margin:8px 0 3px; font-size:clamp(24px,3vw,38px); }
+.photo-route-group-copy p { margin:0 0 18px; color:rgba(255,248,236,.72); font-size:13px; }
+.photo-route-group-copy span { color:#f3d59f; font-size:11px; }
+.photo-route-exhibit-wall { display:grid; grid-template-columns:repeat(4,minmax(90px,1fr)); align-items:end; gap:clamp(12px,1.8vw,24px); padding:28px; border:1px solid rgba(255,231,192,.18); background:linear-gradient(180deg,rgba(52,35,23,.22),rgba(16,11,8,.58)); box-shadow:inset 0 1px rgba(255,255,255,.08),0 26px 70px rgba(0,0,0,.26); perspective:900px; }
+.photo-route-exhibit-wall[style*="--group-size: 2"] { grid-template-columns:repeat(2,minmax(150px,230px)); justify-content:center; }
+.photo-route-exhibit-wall[style*="--group-size: 3"] { grid-template-columns:repeat(3,minmax(120px,210px)); justify-content:center; }
+.photo-route-exhibit { display:grid; align-self:stretch; min-width:0; padding:0; border:0; background:transparent; color:#fff8ec; text-align:left; cursor:pointer; transition:transform 220ms ease,filter 220ms ease; }
+.photo-route-exhibit:nth-child(even) { transform:translateY(10px); }
+.photo-route-exhibit:hover,.photo-route-exhibit:focus-visible,.photo-route-exhibit.is-current { z-index:2; filter:brightness(1.08); transform:translateY(-7px) scale(1.045); }
+.photo-route-exhibit-image { display:grid; place-items:center; min-height:138px; padding:8px; border:7px solid #352419; background:#d6b887; box-shadow:inset 0 0 0 1px rgba(255,255,255,.22),0 15px 28px rgba(0,0,0,.42),0 0 24px rgba(255,208,132,.13); }
+.photo-route-exhibit-image img { display:block; width:100%; height:100%; max-height:182px; object-fit:contain; background:#211812; }
+.photo-route-exhibit-label { display:grid; gap:3px; margin:9px 4px 0; padding:7px 9px; border-left:1px solid rgba(230,189,122,.7); background:rgba(22,16,12,.72); backdrop-filter:blur(8px); }
+.photo-route-exhibit-label small { overflow:hidden; color:#e6bd7a; font-size:8px; text-overflow:ellipsis; white-space:nowrap; }
+.photo-route-exhibit-label strong { overflow:hidden; font-size:10px; line-height:1.35; text-overflow:ellipsis; white-space:nowrap; }
+.photo-route-near-view { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(280px,.65fr); align-items:center; gap:clamp(22px,3vw,42px); animation:gallery-near-forward 560ms cubic-bezier(.18,.82,.22,1) both; }
+.photo-route-stage.moves-backward .photo-route-near-view { animation-name:gallery-near-backward; }
+@keyframes gallery-near-forward { from{opacity:0;transform:translateX(42px) scale(.94)} to{opacity:1;transform:none} }
+@keyframes gallery-near-backward { from{opacity:0;transform:translateX(-42px) scale(.94)} to{opacity:1;transform:none} }
+.photo-route-near-photo { display:grid; grid-template-rows:minmax(0,1fr) auto; height:min(480px,calc(100% - 8px)); min-height:330px; margin:0; padding:13px 13px 0; border:10px solid #302116; background:#130f0c; box-shadow:0 28px 80px rgba(0,0,0,.5),0 0 45px rgba(255,213,145,.13); }
+.photo-route-near-photo img { width:100%; height:100%; min-height:0; object-fit:contain; background:#0e0c0a; }
+.photo-route-near-photo figcaption { padding:9px 3px 10px; color:rgba(255,248,236,.6); font-size:9px; letter-spacing:.05em; }
+.photo-route-docent { position:relative; padding:clamp(20px,3vw,34px); border:1px solid rgba(247,230,201,.42); background:rgba(25,18,13,.88); color:#fff8ec; box-shadow:0 24px 64px rgba(0,0,0,.38); backdrop-filter:blur(16px); }
+.photo-route-docent::before { position:absolute; top:36px; right:100%; width:36px; height:1px; content:""; background:#e6bd7a; }
+.photo-route-docent h4 { margin:12px 0; font-size:clamp(22px,2.5vw,34px); line-height:1.2; }
+.photo-route-docent p { margin:0; color:rgba(255,248,236,.8); font-size:14px; line-height:1.85; }
+.photo-route-docent .ghost-action { margin-top:20px; border-color:rgba(230,189,122,.48); color:#fff8ec; }
+.photo-route-navigation { position:absolute; bottom:22px; left:50%; z-index:8; display:grid; grid-template-columns:repeat(4,minmax(70px,94px)); gap:5px; padding:6px; border:1px solid rgba(247,230,201,.34); border-radius:8px; background:rgba(20,15,11,.8); box-shadow:0 18px 42px rgba(0,0,0,.34); transform:translateX(-50%); backdrop-filter:blur(14px); }
+.photo-route-navigation button { display:grid; grid-template-columns:auto auto; place-content:center; align-items:center; gap:6px; min-height:45px; padding:0 10px; border:1px solid transparent; border-radius:4px; background:rgba(255,255,255,.045); color:#fff8ec; font:inherit; cursor:pointer; }
+.photo-route-navigation button:hover,.photo-route-navigation button:focus-visible,.photo-route-navigation button.is-active { border-color:rgba(230,189,122,.55); background:rgba(148,67,45,.66); }
+.photo-route-navigation button span { color:#e6bd7a; font-size:17px; }
+.photo-route-navigation button small { font-size:10px; }
+.photo-route-unit-rail { position:relative; display:grid; grid-template-columns:repeat(8,minmax(92px,1fr)); gap:6px; margin-top:14px; padding-top:4px; }
+.photo-route-unit-rail button { position:relative; z-index:2; display:grid; gap:2px; min-width:0; padding:10px 9px 12px; border:1px solid rgba(103,78,51,.2); background:rgba(248,243,234,.74); color:var(--ink); text-align:left; cursor:pointer; transition:transform 180ms ease,background 180ms ease; }
+.photo-route-unit-rail button:hover,.photo-route-unit-rail button:focus-visible { transform:translateY(-2px); }
+.photo-route-unit-rail button.is-active { border-color:#9b4c35; background:#512d22; color:#fff8ec; }
+.photo-route-unit-rail button span { color:var(--accent); font-size:10px; font-weight:800; }
+.photo-route-unit-rail button.is-active span { color:#e6bd7a; }
+.photo-route-unit-rail button small,.photo-route-unit-rail button em { color:var(--muted); font-size:8px; font-style:normal; }
+.photo-route-unit-rail button.is-active small,.photo-route-unit-rail button.is-active em { color:rgba(255,248,236,.62); }
+.photo-route-unit-rail button strong { overflow:hidden; font-size:11px; text-overflow:ellipsis; white-space:nowrap; }
+.photo-route-unit-rail .photo-route-progress { top:auto; bottom:0; left:0; right:0; z-index:3; height:2px; }
+@media(max-width:1000px){.photo-route-group-view{grid-template-columns:180px minmax(0,1fr);gap:20px}.photo-route-exhibit-wall{grid-template-columns:repeat(3,minmax(78px,1fr));padding:18px}.photo-route-near-view{grid-template-columns:minmax(0,1.15fr) minmax(250px,.85fr)}.photo-route-docent p{font-size:13px;line-height:1.7}}
+@media(max-width:760px){.photo-route-heading-actions{width:100%;justify-items:start}.photo-route-stage{min-height:790px}.photo-route-location{top:13px;left:13px;right:13px}.photo-route-group-view,.photo-route-near-view{inset:82px 13px 92px}.photo-route-group-view{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr);align-content:start;gap:12px}.photo-route-group-copy{align-self:auto;margin:0;padding:14px 16px}.photo-route-group-copy h4{margin:4px 0 2px;font-size:24px}.photo-route-group-copy p{margin-bottom:7px}.photo-route-exhibit-wall,.photo-route-exhibit-wall[style*="--group-size"]{grid-template-columns:repeat(2,minmax(0,1fr));justify-content:stretch;gap:10px;padding:12px;overflow-y:auto}.photo-route-exhibit-image{min-height:108px;padding:5px;border-width:5px}.photo-route-exhibit-image img{max-height:130px}.photo-route-exhibit:nth-child(even){transform:none}.photo-route-near-view{grid-template-columns:1fr;grid-template-rows:minmax(300px,1fr) auto;align-content:stretch;gap:12px}.photo-route-near-photo{width:100%;height:100%;min-height:300px;border-width:7px}.photo-route-docent{padding:16px}.photo-route-docent::before{display:none}.photo-route-docent h4{margin:7px 0;font-size:21px}.photo-route-docent p{display:-webkit-box;overflow:hidden;font-size:12px;line-height:1.55;-webkit-box-orient:vertical;-webkit-line-clamp:4}.photo-route-docent .ghost-action{margin-top:10px}.photo-route-navigation{bottom:14px;grid-template-columns:repeat(4,minmax(58px,1fr));width:calc(100% - 26px)}.photo-route-navigation button{min-height:43px;padding:0 5px}.photo-route-unit-rail{overflow-x:auto;grid-template-columns:repeat(8,minmax(108px,1fr));padding-bottom:4px}}
+
 /* 「切换灯光」切到深色夜场主题 */
 body.dark {
   color-scheme: dark;
@@ -5464,6 +5526,82 @@ body.dark .masterpiece-backdrop::after {
   pointer-events: none;
 }
 
+/* 2D 近景：模拟博物馆轨道射灯，重点照亮原件，周边保持低照度。 */
+.photo-route-stage.is-near .photo-route-light {
+  background:
+    radial-gradient(ellipse 42% 62% at 31% 39%, rgba(255, 233, 186, .34), rgba(232, 190, 121, .1) 48%, transparent 74%),
+    radial-gradient(ellipse 28% 45% at 76% 42%, rgba(255, 220, 164, .13), transparent 72%);
+}
+
+.photo-route-near-view::before {
+  position: absolute;
+  top: -46px;
+  left: 9%;
+  z-index: 5;
+  width: 48%;
+  height: 34px;
+  border-top: 4px solid rgba(42, 31, 22, .96);
+  content: "";
+  background:
+    radial-gradient(ellipse at 50% 0, rgba(255, 243, 210, .95) 0 5%, rgba(236, 190, 111, .46) 8%, transparent 38%);
+  filter: drop-shadow(0 15px 18px rgba(238, 187, 103, .48));
+  pointer-events: none;
+}
+
+.photo-route-near-photo {
+  position: relative;
+  overflow: visible;
+  border-color: #4b3320;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.06), transparent 24% 76%, rgba(0,0,0,.12)),
+    linear-gradient(135deg, #6f472c, #3d2617 58%, #70492e);
+  box-shadow:
+    0 30px 82px rgba(0,0,0,.58),
+    0 -10px 42px rgba(255, 215, 145, .2),
+    0 0 0 1px rgba(223, 182, 112, .3);
+}
+
+.photo-route-near-photo::before {
+  position: absolute;
+  inset: 13px 13px 37px;
+  z-index: 2;
+  content: "";
+  background:
+    radial-gradient(ellipse 62% 105% at 50% 0, rgba(255, 244, 211, .32), rgba(241, 201, 132, .13) 42%, transparent 76%),
+    linear-gradient(90deg, rgba(53, 31, 18, .12), transparent 20% 80%, rgba(53, 31, 18, .12));
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+.photo-route-near-photo::after {
+  position: absolute;
+  top: -28px;
+  left: 50%;
+  z-index: 6;
+  width: 74px;
+  height: 18px;
+  border: 1px solid rgba(133, 98, 58, .72);
+  border-radius: 3px 3px 8px 8px;
+  content: "";
+  background: linear-gradient(180deg, #2d251e, #0d0b09 62%, #d2a25f 68%, #ffe1a4);
+  box-shadow: 0 8px 18px rgba(255, 207, 125, .58);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.photo-route-near-photo img {
+  background:
+    repeating-linear-gradient(90deg, rgba(255,255,255,.025) 0 1px, transparent 1px 7px),
+    linear-gradient(90deg, #4c2e1b, #7d5333 48%, #4b2d1a);
+  filter: brightness(1.12) contrast(1.045) saturate(1.02);
+}
+
+.photo-route-docent {
+  background:
+    radial-gradient(circle at 28% 0, rgba(232, 190, 121, .13), transparent 42%),
+    rgba(25,18,13,.9);
+}
+
 .photo-route-bg {
   position: absolute;
   inset: 0;
@@ -5850,4 +5988,143 @@ button.exhibition-text-thumb:hover img {
   pointer-events: none;
   background:
     radial-gradient(118% 92% at 50% 42%, transparent 52%, rgba(12, 9, 6, 0.3) 100%);
+}
+
+/* 2D 展厅覆盖项放在文件末尾，保证不被旧版路线样式回写。 */
+.photo-route-stage { min-height: 680px; }
+.photo-route-stage::before {
+  z-index: 1;
+  background:
+    linear-gradient(180deg, rgba(11, 8, 6, .2), transparent 28%, rgba(11, 8, 6, .48)),
+    linear-gradient(90deg, rgba(15, 10, 7, .2), transparent 32%, rgba(15, 10, 7, .08));
+}
+
+@media (max-width: 760px) {
+  .photo-route-stage { min-height: 790px; }
+}
+
+/* 2D 中景：馆藏影像按底图壁龛坐标嵌入，不再悬浮在展厅前方。 */
+@media (min-width: 761px) {
+  .photo-route-stage {
+    min-height: 520px;
+    aspect-ratio: 16 / 9;
+  }
+
+  .photo-route-stage.is-group .photo-route-bg {
+    object-fit: fill;
+    transform: none;
+  }
+
+  .photo-route-group-view {
+    inset: 0;
+    display: block;
+  }
+
+  .photo-route-group-copy {
+    position: absolute;
+    left: 2.2%;
+    bottom: 2%;
+    z-index: 6;
+    width: min(25%, 330px);
+    margin: 0;
+    padding: 16px 18px;
+  }
+
+  .photo-route-group-copy h4 { font-size: clamp(22px, 2.2vw, 34px); }
+  .photo-route-group-copy p { margin-bottom: 8px; }
+
+  .photo-route-exhibit-wall {
+    position: absolute;
+    inset: 0;
+    display: block;
+    padding: 0;
+    border: 0;
+    background: none;
+    box-shadow: none;
+    perspective: none;
+    pointer-events: none;
+  }
+
+  .photo-route-exhibit {
+    position: absolute;
+    display: block;
+    width: var(--slot-width);
+    height: var(--slot-height);
+    box-sizing: border-box;
+    padding: 9px;
+    border: 1px solid rgba(238, 203, 141, .7);
+    border-radius: 2px;
+    background:
+      linear-gradient(135deg, rgba(255,255,255,.14), transparent 30%),
+      linear-gradient(90deg, #25150e, #6a442b 48%, #28170f);
+    box-shadow: 0 13px 22px rgba(0,0,0,.46), inset 0 0 0 3px #2a180f, inset 0 0 0 5px rgba(190,139,77,.38);
+    transform: none;
+    pointer-events: auto;
+  }
+
+  .photo-route-exhibit:nth-child(even) { transform: none; }
+  .photo-route-exhibit:hover,
+  .photo-route-exhibit:focus-visible,
+  .photo-route-exhibit.is-current { transform: none; filter: brightness(1.08); }
+
+  .photo-route-exhibit-image {
+    position: absolute;
+    inset: 9px;
+    width: auto;
+    height: auto;
+    min-height: 0;
+    overflow: hidden;
+    padding: 6px;
+    border: 1px solid rgba(110, 75, 43, .8);
+    background: linear-gradient(135deg, #8d6541, #5b3821 62%, #8a6040);
+    box-shadow: inset 0 0 8px rgba(64, 40, 24, .28);
+    box-sizing: border-box;
+  }
+
+  .photo-route-exhibit-image img {
+    position: absolute;
+    inset: 6px;
+    display: block;
+    width: calc(100% - 12px);
+    height: calc(100% - 12px);
+    max-height: none;
+    object-fit: contain;
+    background:
+      repeating-linear-gradient(90deg, rgba(255,255,255,.025) 0 1px, transparent 1px 7px),
+      linear-gradient(90deg, #4c2e1b, #7d5333 48%, #4b2d1a);
+  }
+
+  .photo-route-exhibit.is-current .photo-route-exhibit-image {
+    box-shadow: inset 0 0 0 2px #f1c878, 0 0 25px rgba(241, 200, 120, .5);
+  }
+
+  .photo-route-exhibit-label {
+    position: absolute;
+    top: calc(100% + 7px);
+    left: 50%;
+    z-index: 7;
+    width: max-content;
+    max-width: 190px;
+    margin: 0;
+    opacity: 0;
+    transform: translateX(-50%) translateY(-4px);
+    transition: opacity 160ms ease, transform 160ms ease;
+    pointer-events: none;
+  }
+
+  .photo-route-exhibit:hover .photo-route-exhibit-label,
+  .photo-route-exhibit:focus-visible .photo-route-exhibit-label,
+  .photo-route-exhibit.is-current .photo-route-exhibit-label {
+    opacity: 1;
+    transform: translateX(-50%);
+  }
+
+  /* 八张主题空景共用同一套实体画框网格；藏品、卡纸和木框始终作为整体缩放。 */
+  .photo-route-exhibit.is-slot-1 { left: 17%; top: 30%; --slot-width: 14%; --slot-height: 24%; }
+  .photo-route-exhibit.is-slot-2 { left: 34%; top: 30%; --slot-width: 14%; --slot-height: 24%; }
+  .photo-route-exhibit.is-slot-3 { left: 51%; top: 30%; --slot-width: 14%; --slot-height: 24%; }
+  .photo-route-exhibit.is-slot-4 { left: 68%; top: 30%; --slot-width: 14%; --slot-height: 24%; }
+  .photo-route-exhibit.is-slot-5 { left: 25.5%; top: 57%; --slot-width: 14%; --slot-height: 20%; }
+  .photo-route-exhibit.is-slot-6 { left: 43%; top: 57%; --slot-width: 14%; --slot-height: 20%; }
+  .photo-route-exhibit.is-slot-7 { left: 60.5%; top: 57%; --slot-width: 14%; --slot-height: 20%; }
 }

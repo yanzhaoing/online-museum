@@ -132,6 +132,11 @@ async function clickPage(cdp, label) {
   console.log("导航后:", JSON.stringify(sealState));
   await delay(3000); // 等印章集纹理加载并调整立幅
   await capture(c, "final-seal-hallway"); // 印章集展柜（立幅）+ 天花板墙纸
+  await clickPage(c, "靠近当前展品");
+  await delay(1600);
+  await capture(c, "final-seal-close-fixed");
+  await clickPage(c, "回到走廊");
+  await delay(500);
   const sceneInfo = await ev(c, `window.__museumGalleryQa.getSceneInfo()`);
   writeFileSync(join(OUT_DIR, "guqin-scene-verify.json"), JSON.stringify(sceneInfo, null, 1));
   const s = sceneInfo;
@@ -139,8 +144,13 @@ async function clickPage(cdp, label) {
   console.log("== 组标题 sign（y≈4.5 贴墙）==");
   for (const o of signs) console.log(`  x=${o.x} y=${o.y} z=${o.z} w=${o.w} h=${o.h}`);
   console.log("\n== case 展品（展柜内，立幅）==");
-  const cases = s.filter((o) => /^artwork-/.test(o.name) && Math.abs(o.y - 1.02) < 0.3);
+  const cases = s.filter((o) => /^artwork-/.test(o.name) && Math.abs(o.y - 1.38) < 0.25);
   for (const o of cases) console.log(`  ${o.name} x=${o.x} y=${o.y} z=${o.z} w=${o.w} h=${o.h} 比例=${(o.w / o.h).toFixed(2)}`);
+  const caseFrameParts = s.filter((o) => /^frame-part-/.test(o.name) && Math.abs(o.x) < 3.8 && o.y < 2.05 && o.y > 0.75);
+  const penetratingParts = caseFrameParts.filter((o) => o.y - o.h < 0.77 || o.y + o.h > 2.05);
+  const floatingTopRims = s.filter((o) => o.name === "case-top-rim");
+  console.log("展柜框件净空检查:", { frameParts: caseFrameParts.length, penetrating: penetratingParts.length, floatingTopRims: floatingTopRims.length });
+  if (!cases.length || penetratingParts.length || floatingTopRims.length) throw new Error("3D 展柜仍存在穿模/浮空顶框");
   const proj = await ev(c, `window.__museumGalleryQa.getActiveArtworkProjection()`);
   console.log("\n== 当前展品投影（印章集）==");
   console.log("  title:", proj.itemTitle, "| expectedAspect:", proj.expectedAspect?.toFixed(3), "| projectedAspect:", proj.projectedAspect?.toFixed(3), "| side:", proj.side);
