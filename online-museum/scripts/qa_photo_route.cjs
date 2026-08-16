@@ -127,6 +127,8 @@ async function main() {
   // 第一展厅第二单元：《杨无恙诗序》必须有真实近景与对应解说
   await evaluate(cdp, `[...document.querySelectorAll(".photo-route-unit-rail button")].find(b => b.textContent.includes("文人墨迹"))?.click(); "ok"`);
   await delay(500);
+  await evaluate(cdp, `Promise.all([...document.querySelectorAll(".photo-route-exhibit img")].map(img => img.decode?.().catch(() => {})))`);
+  await shot(cdp, "photoroute-08-manuscripts-mounted.png");
   await evaluate(cdp, `[...document.querySelectorAll(".photo-route-exhibit")].find(b => b.textContent.includes("杨无恙诗序"))?.click(); "ok"`);
   await delay(900);
   await waitFor(cdp, `document.querySelector(".photo-route-docent h4")?.textContent.includes("杨无恙诗序") && document.querySelector(".photo-route-near-photo img")?.naturalWidth > 0`);
@@ -154,9 +156,9 @@ async function main() {
   }
   const exactFrameFit = await evaluate(cdp, `(() => {
     const expected = {
-      "is-slot-2": [34, 30, 14, 24],
-      "is-slot-3": [51, 30, 14, 24],
-      "is-slot-4": [68, 30, 14, 24]
+      "is-slot-2": [27.572, 40.808, 12.679, 21.679],
+      "is-slot-3": [47.548, 40.701, 13.337, 21.892],
+      "is-slot-4": [67.105, 40.701, 13.517, 21.892]
     };
     const stage = document.querySelector(".photo-route-stage").getBoundingClientRect();
     return [...document.querySelectorAll(".photo-route-exhibit")].map(node => {
@@ -193,7 +195,7 @@ async function main() {
   // 生成底图、27 件计数和真实展品近景 URL 校验
   const bg = await evaluate(cdp, `document.querySelector(".photo-route-bg")?.getAttribute("src")`);
   console.log("当前舞台背景:", bg);
-  if (bg !== "textures/hall/unit-recordings.png") throw new Error("唱片单元未切换到独立主题空景");
+  if (bg !== "textures/hall/gpt-soft-labels-v3/unit-recordings.png") throw new Error("唱片单元未切换到完整主题背景");
   const imgOk = await evaluate(cdp, `(document.querySelector(".photo-route-bg")||{}).naturalWidth > 0`);
   console.log("背景图加载成功:", imgOk);
   const count = await evaluate(cdp, `document.querySelector(".photo-route-count")?.textContent.trim()`);

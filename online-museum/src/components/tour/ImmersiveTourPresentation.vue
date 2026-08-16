@@ -136,7 +136,7 @@ onUnmounted(() => bgm.pause());
             <button class="path-step is-primary" type="button" aria-label="下一件展品" title="下一件展品" @click.stop="navigation.nextStop"><small>下一件</small><span aria-hidden="true">›</span></button>
           </div>
           <div class="distance-controls" role="group" aria-label="观看距离">
-            <button class="distance-control" type="button" aria-label="靠近当前展品" title="靠近当前展品" @click.stop="immersive.approachActiveExhibit"><span aria-hidden="true">▲</span><small>靠近</small></button>
+            <button class="distance-control" type="button" aria-label="进入当前展品近景" title="进入当前展品近景" @click.stop="immersive.approachActiveExhibit"><span aria-hidden="true">▲</span><small>近景</small></button>
             <button class="distance-control" type="button" aria-label="回到走廊" title="回到走廊" @click.stop="immersive.returnToHallway"><span aria-hidden="true">▼</span><small>走廊</small></button>
           </div>
           <button class="round-control" type="button" :class="{ 'is-active': immersive.orbitView.value }" aria-label="环视" @click.stop="immersive.toggleOrbit"><span aria-hidden="true">◎</span><small>环视</small></button>

@@ -75,16 +75,40 @@ const progress = computed(() => route.value.length ? ((activeIndex.value + 1) / 
 const sceneClass = computed(() => `is-hall-${activeStop.value?.hallIndex ?? 0}`);
 
 const UNIT_BACKGROUNDS = {
-  "unit-qinxue": "textures/hall/unit-qinxue.png",
-  "unit-manuscripts": "textures/hall/unit-manuscripts.png",
-  "unit-seals": "textures/hall/unit-seals.png",
-  "unit-qin-craft": "textures/hall/unit-qin-craft.png",
-  "unit-recordings": "textures/hall/unit-recordings.png",
-  "unit-qin-heart": "textures/hall/unit-qin-heart.png",
-  "unit-masters": "textures/hall/unit-masters.png",
-  "unit-paintings": "textures/hall/unit-paintings.png",
+  "unit-qinxue": "textures/hall/gpt-soft-labels-v3/unit-qinxue.png",
+  "unit-manuscripts": "textures/hall/gpt-soft-labels-v3/unit-manuscripts.png",
+  "unit-seals": "textures/hall/gpt-soft-labels-v3/unit-seals.png",
+  "unit-qin-craft": "textures/hall/gpt-soft-labels-v3/unit-qin-craft.png",
+  "unit-recordings": "textures/hall/gpt-soft-labels-v3/unit-recordings.png",
+  "unit-qin-heart": "textures/hall/gpt-soft-labels-v3/unit-qin-heart.png",
+  "unit-masters": "textures/hall/gpt-soft-labels-v3/unit-masters.png",
+  "unit-paintings": "textures/hall/gpt-soft-labels-v3/unit-paintings.png",
 };
 const activeBackground = computed(() => UNIT_BACKGROUNDS[activeStop.value?.unit?.id] || UNIT_BACKGROUNDS["unit-qinxue"]);
+const activeMobileBackground = computed(() => activeBackground.value.replace("textures/hall/gpt-soft-labels-v3/", "textures/hall/"));
+const unitClass = computed(() => `is-unit-${activeStop.value?.unit?.id || "qinxue"}`);
+
+const FRAME_BOXES = {
+  "unit-qinxue": [[450,295,234,232],[1015,295,214,232]],
+  "unit-manuscripts": [[510,320,232,230],[941,320,220,230]],
+  "unit-seals": [[495,300,246,245],[995,300,236,245]],
+  "unit-qin-craft": [[381,312,195,180],[619,312,210,180],[852,312,213,180],[1100,312,210,180],[410,541,235,158],[664,541,277,158],[975,541,277,158]],
+  "unit-recordings": [[461,384,212,204],[795,383,223,206],[1122,383,226,206]],
+  "unit-qin-heart": [[375,207,204,221],[633,207,210,221],[905,207,219,221],[1183,207,218,221],[757,535,232,182]],
+  "unit-masters": [[500,332,233,221],[800,332,239,221],[1082,332,243,221]],
+  "unit-paintings": [[538,299,229,212],[823,299,231,212],[1104,299,223,212]],
+};
+
+function frameStyle(index) {
+  const box = FRAME_BOXES[activeStop.value?.unit?.id]?.[index];
+  if (!box) return {};
+  return {
+    left: `${box[0] / 16.72}%`,
+    top: `${box[1] / 9.41}%`,
+    width: `${box[2] / 16.72}%`,
+    height: `${box[3] / 9.41}%`,
+  };
+}
 
 function imageFor(stop) {
   if (!stop?.item) return "";
@@ -106,12 +130,24 @@ function selectGroup(group) {
   selectStop(group.firstIndex, "group");
 }
 
+function previewStop(index) {
+  const stop = route.value[index];
+  if (viewMode.value !== "group" || !stop || stop.unitKey !== activeGroup.value?.key) return;
+  activeIndex.value = index;
+}
+
 function move(delta) {
   if (!route.value.length) return;
   const next = (activeIndex.value + delta + route.value.length) % route.value.length;
-  // 上一件/下一件只改变当前藏品，不改变观看距离：
+  // 上一件/移步只改变当前展示面，不改变观看距离：
   // 中景下继续保持整组陈列，近景下继续保持单件特写。
   selectStop(next, viewMode.value);
+}
+
+function moveToNextWall() {
+  if (!groups.value.length) return;
+  const nextGroupIndex = (activeGroupIndex.value + 1 + groups.value.length) % groups.value.length;
+  selectGroup(groups.value[nextGroupIndex]);
 }
 
 const FRAME_SLOT_ORDERS = {
@@ -129,6 +165,18 @@ function frameSlot(index, count) {
   return order[index] || 7;
 }
 
+function descriptionWithoutUnknownAuthor(text) {
+  return String(text || "")
+    .replace(/(?:作者|创作者)\s*[:：]?\s*(?:不详|佚名)\s*[，,。；;]?/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function exhibitSummary(text, limit = 46) {
+  const normalized = descriptionWithoutUnknownAuthor(text).replace(/\s+/g, "").trim();
+  return normalized.length > limit ? `${normalized.slice(0, limit)}……` : normalized;
+}
+
 function approach() {
   viewMode.value = "near";
   if (isStageVisible.value) bgm.play();
@@ -139,7 +187,7 @@ function returnToGroup() {
 }
 
 function openActiveDetail() {
-  if (activeStop.value) openDetail(activeStop.value.item.id, activeStop.value.content.text);
+  if (activeStop.value) openDetail(activeStop.value.item.id, descriptionWithoutUnknownAuthor(activeStop.value.content.text));
 }
 
 function handleStageKeydown(event) {
@@ -172,7 +220,7 @@ onBeforeUnmount(() => {
       <div>
         <p class="eyebrow">Interactive 2D Gallery · 互动电子展厅</p>
         <h3 id="photoRouteTitle">走近藏品，听见琴史</h3>
-        <p>八个展览单元逐件呈现真实馆藏影像。中景看一组展品，靠近后看原件细节，解说始终与当前藏品对应。</p>
+        <p>八个展览单元逐件呈现真实馆藏影像。中景看一组展品，进入近景后看原件细节，解说始终与当前藏品对应。</p>
       </div>
       <div class="photo-route-heading-actions">
         <span class="photo-route-count">{{ route.length }} 件展品 · {{ groups.length }} 个单元</span>
@@ -192,13 +240,16 @@ onBeforeUnmount(() => {
     <div
       ref="stageRef"
       class="photo-route-stage"
-      :class="[sceneClass, `is-${viewMode}`, `moves-${motionDirection}`]"
+      :class="[sceneClass, unitClass, `is-${viewMode}`, `moves-${motionDirection}`]"
       role="application"
-      aria-label="古琴展互动二维展厅，使用左右方向键移动、上键靠近、下键退回中景"
+      aria-label="古琴展互动二维展厅，使用左右方向键移动、上键进入近景、下键退回中景"
       tabindex="0"
       @keydown="handleStageKeydown"
     >
-      <img class="photo-route-bg" :src="activeBackground" alt="" aria-hidden="true" />
+      <picture>
+        <source media="(max-width: 760px)" :srcset="activeMobileBackground" />
+        <img class="photo-route-bg" :src="activeBackground" alt="" aria-hidden="true" />
+      </picture>
       <div class="photo-route-light" aria-hidden="true"></div>
 
       <div v-if="activeStop" class="photo-route-location">
@@ -211,7 +262,12 @@ onBeforeUnmount(() => {
           <small>中景 · 本组 {{ activeGroup.stops.length }} 件</small>
           <h4>{{ activeGroup.unit.title }}</h4>
           <p>{{ activeGroup.unit.subtitle }}</p>
-          <span>点击任一真实藏品，靠近查看</span>
+          <div class="photo-route-group-focus">
+            <small>{{ activeStop.content.codeRange || activeStop.content.code }}</small>
+            <h5>{{ activeStop.content.title }}</h5>
+            <p>{{ exhibitSummary(activeStop.content.text, 120) }}</p>
+          </div>
+          <span>指向展品阅读说明，点击后进入近景查看</span>
         </div>
         <div class="photo-route-exhibit-wall" :style="{ '--group-size': activeGroup.stops.length }">
           <button
@@ -219,12 +275,15 @@ onBeforeUnmount(() => {
             :key="stop.id"
             class="photo-route-exhibit"
             :class="[{ 'is-current': stop.index === activeIndex }, `is-slot-${frameSlot(exhibitIndex, activeGroup.stops.length)}`]"
+            :style="frameStyle(exhibitIndex)"
             type="button"
-            :aria-label="`靠近查看：${stop.content.title}`"
+            :aria-label="`近景查看：${stop.content.title}`"
+            @mouseenter="previewStop(stop.index)"
+            @focus="previewStop(stop.index)"
             @click="selectStop(stop.index)"
           >
             <span class="photo-route-exhibit-image"><img :src="imageFor(stop)" :alt="displayTitle(stop.item)" loading="eager" decoding="sync" /></span>
-            <span class="photo-route-exhibit-label"><small>{{ stop.content.code }}</small><strong>{{ stop.content.title }}</strong></span>
+            <span class="photo-route-exhibit-label"><small>{{ stop.content.code }}</small><strong>{{ stop.content.title }}</strong><span class="photo-route-exhibit-summary">{{ exhibitSummary(stop.content.text) }}</span></span>
           </button>
         </div>
       </div>
@@ -240,16 +299,16 @@ onBeforeUnmount(() => {
             <span>{{ activeStop.unit.title }}</span>
           </div>
           <h4>{{ activeStop.content.title }}</h4>
-          <p>{{ activeStop.content.text }}</p>
+          <p>{{ descriptionWithoutUnknownAuthor(activeStop.content.text) }}</p>
           <button class="ghost-action" type="button" @click="openActiveDetail">查看高清档案</button>
         </article>
       </div>
 
       <div v-if="activeStop" class="photo-route-navigation" aria-label="二维展厅移动控制">
         <button type="button" aria-label="上一件展品" title="上一件展品" @click="move(-1)"><span aria-hidden="true">←</span><small>上一件</small></button>
-        <button type="button" :class="{ 'is-active': viewMode === 'near' }" aria-label="靠近当前展品" title="靠近当前展品" @click="approach"><span aria-hidden="true">↑</span><small>靠近</small></button>
+        <button type="button" :class="{ 'is-active': viewMode === 'near' }" aria-label="进入当前展品近景" title="进入当前展品近景" @click="approach"><span aria-hidden="true">↑</span><small>近景</small></button>
         <button type="button" :class="{ 'is-active': viewMode === 'group' }" aria-label="退回当前单元中景" title="退回当前单元中景" @click="returnToGroup"><span aria-hidden="true">↓</span><small>中景</small></button>
-        <button type="button" aria-label="下一件展品" title="下一件展品" @click="move(1)"><span aria-hidden="true">→</span><small>下一件</small></button>
+        <button type="button" aria-label="移步到下一面墙" title="移步到下一面墙" @click="moveToNextWall"><span aria-hidden="true">→</span><small>移步</small></button>
       </div>
     </div>
 

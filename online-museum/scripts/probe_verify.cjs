@@ -132,7 +132,7 @@ async function clickPage(cdp, label) {
   console.log("导航后:", JSON.stringify(sealState));
   await delay(3000); // 等印章集纹理加载并调整立幅
   await capture(c, "final-seal-hallway"); // 印章集展柜（立幅）+ 天花板墙纸
-  await clickPage(c, "靠近当前展品");
+  await clickPage(c, "进入当前展品近景");
   await delay(1600);
   await capture(c, "final-seal-close-fixed");
   await clickPage(c, "回到走廊");

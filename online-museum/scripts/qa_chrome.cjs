@@ -183,7 +183,7 @@ function activeArtworkEvidenceExpression() {
       state,
       projection,
       reviewChecklist: [
-        "current exhibit image is visible after clicking 靠近",
+        "current exhibit image is visible after clicking 近景",
         "no pilaster, wall edge, HUD, or control blocks the exhibit body",
         "frame remains rectangular enough for a museum close-up view",
         "image is not stretched, crushed, blank, or visually misshapen",
@@ -345,7 +345,7 @@ async function main() {
   await delay(950);
   await clickButton(cdp, "下一件展品");
   await delay(950);
-  await clickButton(cdp, "靠近当前展品");
+  await clickButton(cdp, "进入当前展品近景");
   await delay(2300);
 
   const closeArtwork = await evaluate(cdp, activeArtworkEvidenceExpression());
@@ -359,7 +359,7 @@ async function main() {
   await delay(900);
   const caseMove = await moveAlongPathToSide(cdp, "case");
   checks.push({ casePathMove: caseMove });
-  await clickButton(cdp, "靠近当前展品");
+  await clickButton(cdp, "进入当前展品近景");
   await delay(2300);
   const closeCaseArtwork = await evaluate(cdp, activeArtworkEvidenceExpression());
   checks.push({ closeCaseArtworkEvidence: closeCaseArtwork });
