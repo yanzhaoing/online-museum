@@ -223,12 +223,13 @@ async function main() {
   await delay(800);
   const bambooNear = await evaluate(cdp, `({
     background: document.querySelector(".photo-route-bg")?.getAttribute("src"),
+    backgroundHidden: getComputedStyle(document.querySelector(".photo-route-bg")).visibility === "hidden" && getComputedStyle(document.querySelector(".photo-route-bg")).opacity === "0",
     image: document.querySelector(".photo-route-near-photo img")?.getAttribute("src"),
     imageLoaded: (document.querySelector(".photo-route-near-photo img")?.naturalWidth || 0) > 0
   })`);
   console.log("竹禅近景一致性:", { before: bambooBackgroundBefore, ...bambooNear });
-  if (bambooNear.background !== bambooBackgroundBefore || !bambooNear.image?.startsWith("fullsize/") || !bambooNear.imageLoaded) {
-    throw new Error("竹禅作品中景与近景未保持同一展厅背景或高清原图");
+  if (bambooNear.background !== bambooBackgroundBefore || !bambooNear.backgroundHidden || !bambooNear.image?.startsWith("fullsize/") || !bambooNear.imageLoaded) {
+    throw new Error("近景仍显示多展品中景底图，或当前展品高清原图未加载");
   }
   await shot(cdp, "photoroute-07-bamboo-near.png");
 

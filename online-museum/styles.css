@@ -17,6 +17,15 @@
   font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", system-ui, sans-serif;
 }
 
+/* 近景在所有屏幕尺寸下都只保留当前单件原件，隐藏包含多件藏品的中景底图。 */
+.photo-route-stage.is-near .photo-route-bg {
+  opacity: 0;
+  visibility: hidden;
+  animation: none;
+  filter: none;
+  transform: none;
+}
+
 /* ---------- 甲方整改：真实藏品 2D 互动展厅 ---------- */
 .photo-route-heading-actions { display:grid; justify-items:end; gap:10px; flex:0 0 auto; }
 .photo-route-sound { display:inline-flex; align-items:center; gap:8px; min-height:38px; padding:0 14px; border:1px solid rgba(230,189,122,.58); border-radius:999px; background:rgba(20,16,13,.68); color:#f3d59f; font:inherit; font-size:12px; cursor:pointer; backdrop-filter:blur(10px); }
@@ -6070,6 +6079,22 @@ button.exhibition-text-thumb:hover img {
   .photo-route-stage.is-group .photo-route-exhibit-label {
     display: none;
   }
+
+  /* 近景只展示当前这一件原件；中景墙面图不再作为多展品底图继续露出。 */
+  .photo-route-stage.is-near {
+    background:
+      radial-gradient(ellipse 42% 68% at 31% 38%, rgba(255, 226, 168, .2), transparent 72%),
+      linear-gradient(90deg, #241810 0%, #3b281b 48%, #21150e 100%);
+  }
+
+  .photo-route-stage.is-near .photo-route-bg {
+    opacity: 0;
+    visibility: hidden;
+    filter: none;
+    transform: none;
+  }
+
+  .photo-route-stage.is-near .photo-route-near-view { z-index: 4; }
 
   .photo-route-stage.is-group .photo-route-exhibit-label small { color:#76512f; font-size:10px; font-weight:700; }
   .photo-route-stage.is-group .photo-route-exhibit-label strong { color:#18110d; font-size:15px; line-height:1.2; white-space:normal; }
