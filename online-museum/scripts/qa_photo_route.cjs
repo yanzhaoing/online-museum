@@ -108,7 +108,7 @@ async function main() {
   // 滚到 2D 路线板块：第一单元中景必须已经陈列真实藏品
   await evaluate(cdp, `document.documentElement.style.scrollBehavior="auto"; document.querySelector(".photo-route").scrollIntoView({block:"start"}); "ok"`);
   await delay(1400);
-  await waitFor(cdp, `document.querySelectorAll(".photo-route-exhibit img").length >= 2 && [...document.querySelectorAll(".photo-route-exhibit img")].every(img => img.naturalWidth > 0)`);
+  await waitFor(cdp, `document.querySelectorAll(".photo-route-exhibit img").length >= 1 && [...document.querySelectorAll(".photo-route-exhibit img")].every(img => img.naturalWidth > 0)`);
   await evaluate(cdp, `Promise.all([...document.querySelectorAll(".photo-route-exhibit img")].map(img => img.decode?.().catch(() => {})))`);
   await shot(cdp, "photoroute-01-group-medium.png");
 
@@ -134,56 +134,20 @@ async function main() {
   await waitFor(cdp, `document.querySelector(".photo-route-docent h4")?.textContent.includes("杨无恙诗序") && document.querySelector(".photo-route-near-photo img")?.naturalWidth > 0`);
   await shot(cdp, "photoroute-02-yang-wuyang-near.png");
 
-  // 第二展厅第二单元：唱片组中景必须使用真实唱片影像，而不是瓷器背景
+  // 第二展厅第二单元：唱片组中景由生成的墙面图承载展品，点击热区仍切换到原始高清近景
   await evaluate(cdp, `[...document.querySelectorAll(".photo-route-unit-rail button")].find(b => b.textContent.includes("琴声留痕"))?.click(); "ok"`);
   await delay(900);
   await waitFor(cdp, `[...document.querySelectorAll(".photo-route-exhibit")].some(b => b.textContent.includes("唱片58正面"))`);
   await evaluate(cdp, `Promise.all([...document.querySelectorAll(".photo-route-exhibit img")].map(img => img.decode?.().catch(() => {})))`);
-  const embeddedSlots = await evaluate(cdp, `(() => {
-    const stage = document.querySelector(".photo-route-stage").getBoundingClientRect();
-    return [...document.querySelectorAll(".photo-route-exhibit")].map(node => {
-      const rect = node.getBoundingClientRect();
-      return {
-        slot: [...node.classList].find(name => name.startsWith("is-slot-")),
-        left: +((rect.left - stage.left) / stage.width * 100).toFixed(1),
-        top: +((rect.top - stage.top) / stage.height * 100).toFixed(1)
-      };
-    });
-  })()`);
-  console.log("中景画框嵌入坐标:", embeddedSlots);
-  if (embeddedSlots.map(item => item.slot).join(",") !== "is-slot-2,is-slot-3,is-slot-4") {
-    throw new Error("三件展品未嵌入预定画框槽位");
-  }
-  const exactFrameFit = await evaluate(cdp, `(() => {
-    const expected = {
-      "is-slot-2": [27.572, 40.808, 12.679, 21.679],
-      "is-slot-3": [47.548, 40.701, 13.337, 21.892],
-      "is-slot-4": [67.105, 40.701, 13.517, 21.892]
-    };
-    const stage = document.querySelector(".photo-route-stage").getBoundingClientRect();
-    return [...document.querySelectorAll(".photo-route-exhibit")].map(node => {
-      const slot = [...node.classList].find(name => name.startsWith("is-slot-"));
-      const rect = node.getBoundingClientRect();
-      const imageRect = node.querySelector(".photo-route-exhibit-image").getBoundingClientRect();
-      const actual = [
-        (rect.left - stage.left) / stage.width * 100,
-        (rect.top - stage.top) / stage.height * 100,
-        rect.width / stage.width * 100,
-        rect.height / stage.height * 100
-      ];
-      return {
-        slot,
-        maxPercentError: +Math.max(...actual.map((value, index) => Math.abs(value - expected[slot][index]))).toFixed(4),
-        frameInsetErrorPx: +Math.max(
-          Math.abs((imageRect.left - rect.left) - 10), Math.abs((imageRect.top - rect.top) - 10),
-          Math.abs((rect.right - imageRect.right) - 10), Math.abs((rect.bottom - imageRect.bottom) - 10)
-        ).toFixed(3)
-      };
-    });
-  })()`);
-  console.log("画框逐边贴合误差:", exactFrameFit);
-  if (exactFrameFit.some(item => item.maxPercentError > 0.12 || item.frameInsetErrorPx > 0.5)) {
-    throw new Error("展品与背景画框边缘未严丝合缝");
+  const compositeWall = await evaluate(cdp, `({
+    background: document.querySelector(".photo-route-bg")?.getAttribute("src"),
+    isComposite: document.querySelector(".photo-route-exhibit-wall")?.classList.contains("is-background-composite"),
+    hotspots: document.querySelectorAll(".photo-route-exhibit").length,
+    overlaysHidden: [...document.querySelectorAll(".photo-route-exhibit-image, .photo-route-exhibit-label")].every(node => getComputedStyle(node).display === "none")
+  })`);
+  console.log("中景生成墙面与透明热区:", compositeWall);
+  if (!compositeWall.isComposite || compositeWall.hotspots !== 2 || !compositeWall.overlaysHidden) {
+    throw new Error("中景没有使用生成墙面图或仍叠加了网页展品卡片");
   }
   await shot(cdp, "photoroute-03-records-medium.png");
 
@@ -195,7 +159,7 @@ async function main() {
   // 生成底图、27 件计数和真实展品近景 URL 校验
   const bg = await evaluate(cdp, `document.querySelector(".photo-route-bg")?.getAttribute("src")`);
   console.log("当前舞台背景:", bg);
-  if (bg !== "textures/hall/gpt-soft-labels-v3/unit-recordings.png") throw new Error("唱片单元未切换到完整主题背景");
+  if (bg !== "textures/hall/gpt-soft-labels-v4/unit-recordings-wall-1.png") throw new Error("唱片墙未切换到生成的主题背景");
   const imgOk = await evaluate(cdp, `(document.querySelector(".photo-route-bg")||{}).naturalWidth > 0`);
   console.log("背景图加载成功:", imgOk);
   const count = await evaluate(cdp, `document.querySelector(".photo-route-count")?.textContent.trim()`);
@@ -210,31 +174,50 @@ async function main() {
     const buttons = [...document.querySelectorAll(".photo-route-unit-rail button")];
     let total = 0;
     const backgrounds = new Set();
+    let walls = 0;
     for (const button of buttons) {
       button.click();
       await new Promise(resolve => setTimeout(resolve, 180));
-      const background = document.querySelector(".photo-route-bg");
-      const images = [...document.querySelectorAll(".photo-route-exhibit img")];
-      await Promise.all([background, ...images].map(img => img?.complete ? Promise.resolve() : new Promise(resolve => {
-        img.addEventListener("load", resolve, { once: true });
-        img.addEventListener("error", resolve, { once: true });
-      })));
-      await Promise.all(images.map(img => img.decode?.().catch(() => {}) || Promise.resolve()));
-      if (!background?.naturalWidth) return { ok: false, total, failedBackground: button.textContent.trim() };
-      backgrounds.add(background.getAttribute("src"));
-      if (images.some(img => img.naturalWidth < 1 || !img.getAttribute("src")?.startsWith("fullsize/"))) {
-        return { ok: false, total, failedGroup: button.textContent.trim() };
+      const visitedWalls = new Set();
+      while (true) {
+        const background = document.querySelector(".photo-route-bg");
+        const images = [...document.querySelectorAll(".photo-route-exhibit img")];
+        const backgroundSrc = background?.getAttribute("src");
+        await Promise.all([background, ...images].map(img => img?.complete ? Promise.resolve() : new Promise(resolve => {
+          img.addEventListener("load", resolve, { once: true });
+          img.addEventListener("error", resolve, { once: true });
+        })));
+        await Promise.all(images.map(img => img.decode?.().catch(() => {}) || Promise.resolve()));
+        if (!background?.naturalWidth) return { ok: false, total, failedBackground: button.textContent.trim() };
+        if (visitedWalls.has(backgroundSrc)) break;
+        visitedWalls.add(backgroundSrc);
+        backgrounds.add(backgroundSrc);
+        walls += 1;
+        if (images.some(img => img.naturalWidth < 1 || !img.getAttribute("src")?.startsWith("fullsize/"))) {
+          return { ok: false, total, failedGroup: button.textContent.trim() };
+        }
+        total += images.length;
+        const activeGroupBefore = [...document.querySelectorAll(".photo-route-unit-rail button")].findIndex(node => node.classList.contains("is-active"));
+        document.querySelector('.photo-route-navigation button[aria-label="移步到下一面墙"]')?.click();
+        await new Promise(resolve => setTimeout(resolve, 220));
+        const activeGroupAfter = [...document.querySelectorAll(".photo-route-unit-rail button")].findIndex(node => node.classList.contains("is-active"));
+        if (activeGroupAfter !== activeGroupBefore) break;
       }
-      total += images.length;
     }
-    return { ok: true, total, groups: buttons.length, backgrounds: [...backgrounds] };
+    return { ok: true, total, groups: buttons.length, walls, backgrounds: [...backgrounds] };
   })()`);
   console.log("全部单元影像巡检:", allGroups);
-  if (!allGroups?.ok || allGroups.total !== 27 || allGroups.groups !== 8 || allGroups.backgrounds?.length !== 8) {
+  if (!allGroups?.ok || allGroups.total !== 27 || allGroups.groups !== 8 || allGroups.walls < 10 || allGroups.backgrounds?.length < 8) {
     throw new Error("8 个主题空景或全部 27 件展品未能完整加载");
   }
 
   // 甲方指定的竹禅长卷：中景与近景必须保持同一主题空景，衬底不得变成黑板。
+  await evaluate(cdp, `[...document.querySelectorAll(".photo-route-unit-rail button")].find(b => b.textContent.includes("丹青寄情"))?.click(); "ok"`);
+  await delay(300);
+  await evaluate(cdp, `document.querySelector('.photo-route-navigation button[aria-label="移步到下一面墙"]')?.click(); "ok"`);
+  await delay(220);
+  await evaluate(cdp, `document.querySelector('.photo-route-navigation button[aria-label="移步到下一面墙"]')?.click(); "ok"`);
+  await delay(300);
   const bambooBackgroundBefore = await evaluate(cdp, `document.querySelector(".photo-route-bg")?.getAttribute("src")`);
   await evaluate(cdp, `[...document.querySelectorAll(".photo-route-exhibit")].find(b => b.textContent.includes("竹禅作品"))?.click(); "ok"`);
   await delay(800);

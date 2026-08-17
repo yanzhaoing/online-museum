@@ -4,6 +4,7 @@ import { useMuseumContext } from "../composables/useMuseumContext";
 import { useGuqinBgm } from "../composables/useGuqinBgm";
 import { buildCodeIndex, sunHaibinExhibition } from "../lib/exhibition";
 import { displayTitle, fileUrl } from "../lib/catalog";
+import { wallContainsCode, wallsForUnit } from "../content/photo-route-walls";
 
 const { items, openDetail } = useMuseumContext();
 const bgm = useGuqinBgm();
@@ -84,9 +85,18 @@ const UNIT_BACKGROUNDS = {
   "unit-masters": "textures/hall/gpt-soft-labels-v3/unit-masters.png",
   "unit-paintings": "textures/hall/gpt-soft-labels-v3/unit-paintings.png",
 };
-const activeBackground = computed(() => UNIT_BACKGROUNDS[activeStop.value?.unit?.id] || UNIT_BACKGROUNDS["unit-qinxue"]);
-const activeMobileBackground = computed(() => activeBackground.value.replace("textures/hall/gpt-soft-labels-v3/", "textures/hall/"));
 const unitClass = computed(() => `is-unit-${activeStop.value?.unit?.id || "qinxue"}`);
+
+const activeWalls = computed(() => wallsForUnit(
+  activeStop.value?.unit?.id,
+  UNIT_BACKGROUNDS[activeStop.value?.unit?.id] || UNIT_BACKGROUNDS["unit-qinxue"],
+));
+const activeWall = computed(() => activeWalls.value.find((wall) => wallContainsCode(wall, activeStop.value?.content?.code)) || activeWalls.value[0]);
+const activeWallIndex = computed(() => activeWalls.value.findIndex((wall) => wall.id === activeWall.value?.id));
+const activeWallStops = computed(() => activeGroup.value?.stops.filter((stop) => wallContainsCode(activeWall.value, stop.content.code)) || []);
+const activeBackground = computed(() => activeWall.value?.background || UNIT_BACKGROUNDS["unit-qinxue"]);
+const activeMobileBackground = computed(() => activeBackground.value);
+const isCompositeWall = computed(() => Boolean(activeWall.value?.codes));
 
 const FRAME_BOXES = {
   "unit-qinxue": [[450,295,234,232],[1015,295,214,232]],
@@ -100,7 +110,7 @@ const FRAME_BOXES = {
 };
 
 function frameStyle(index) {
-  const box = FRAME_BOXES[activeStop.value?.unit?.id]?.[index];
+  const box = activeWall.value?.hotspots?.[index] || FRAME_BOXES[activeStop.value?.unit?.id]?.[index];
   if (!box) return {};
   return {
     left: `${box[0] / 16.72}%`,
@@ -145,7 +155,13 @@ function move(delta) {
 }
 
 function moveToNextWall() {
-  if (!groups.value.length) return;
+  if (!activeGroup.value || !activeWalls.value.length) return;
+  const nextWall = activeWalls.value[activeWallIndex.value + 1];
+  if (nextWall) {
+    const nextStop = activeGroup.value.stops.find((stop) => wallContainsCode(nextWall, stop.content.code));
+    if (nextStop) selectStop(nextStop.index, "group");
+    return;
+  }
   const nextGroupIndex = (activeGroupIndex.value + 1 + groups.value.length) % groups.value.length;
   selectGroup(groups.value[nextGroupIndex]);
 }
@@ -257,9 +273,9 @@ onBeforeUnmount(() => {
         <strong>{{ activeStop.unit.indexLabel }} · {{ activeStop.unit.title }}</strong>
       </div>
 
-      <div v-if="activeGroup && viewMode === 'group'" :key="activeGroup.key" class="photo-route-group-view">
+      <div v-if="activeGroup && viewMode === 'group'" :key="`${activeGroup.key}:${activeWall?.id}`" class="photo-route-group-view">
         <div class="photo-route-group-copy">
-          <small>中景 · 本组 {{ activeGroup.stops.length }} 件</small>
+          <small>中景 · {{ activeWall?.label }} · {{ activeWallStops.length }} 件</small>
           <h4>{{ activeGroup.unit.title }}</h4>
           <p>{{ activeGroup.unit.subtitle }}</p>
           <div class="photo-route-group-focus">
@@ -269,12 +285,12 @@ onBeforeUnmount(() => {
           </div>
           <span>指向展品阅读说明，点击后进入近景查看</span>
         </div>
-        <div class="photo-route-exhibit-wall" :style="{ '--group-size': activeGroup.stops.length }">
+        <div class="photo-route-exhibit-wall" :class="{ 'is-background-composite': isCompositeWall }" :style="{ '--group-size': activeWallStops.length }">
           <button
-            v-for="(stop, exhibitIndex) in activeGroup.stops"
+            v-for="(stop, exhibitIndex) in activeWallStops"
             :key="stop.id"
             class="photo-route-exhibit"
-            :class="[{ 'is-current': stop.index === activeIndex }, `is-slot-${frameSlot(exhibitIndex, activeGroup.stops.length)}`]"
+            :class="[{ 'is-current': stop.index === activeIndex }, `is-slot-${frameSlot(exhibitIndex, activeWallStops.length)}`]"
             :style="frameStyle(exhibitIndex)"
             type="button"
             :aria-label="`近景查看：${stop.content.title}`"
@@ -306,8 +322,9 @@ onBeforeUnmount(() => {
 
       <div v-if="activeStop" class="photo-route-navigation" aria-label="二维展厅移动控制">
         <button type="button" aria-label="上一件展品" title="上一件展品" @click="move(-1)"><span aria-hidden="true">←</span><small>上一件</small></button>
+        <button type="button" aria-label="下一件展品" title="下一件展品" @click="move(1)"><span aria-hidden="true">→</span><small>下一件</small></button>
         <button type="button" :class="{ 'is-active': viewMode === 'near' }" aria-label="进入当前展品近景" title="进入当前展品近景" @click="approach"><span aria-hidden="true">↑</span><small>近景</small></button>
-        <button type="button" :class="{ 'is-active': viewMode === 'group' }" aria-label="退回当前单元中景" title="退回当前单元中景" @click="returnToGroup"><span aria-hidden="true">↓</span><small>中景</small></button>
+        <button type="button" :class="{ 'is-active': viewMode === 'group' }" aria-label="退回当前展厅中景" title="退回当前展厅中景" @click="returnToGroup"><span aria-hidden="true">↓</span><small>中景</small></button>
         <button type="button" aria-label="移步到下一面墙" title="移步到下一面墙" @click="moveToNextWall"><span aria-hidden="true">→</span><small>移步</small></button>
       </div>
     </div>
