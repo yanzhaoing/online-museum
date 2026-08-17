@@ -324,7 +324,7 @@ onBeforeUnmount(() => {
         <button type="button" aria-label="上一件展品" title="上一件展品" @click="move(-1)"><span aria-hidden="true">←</span><small>上一件</small></button>
         <button type="button" aria-label="下一件展品" title="下一件展品" @click="move(1)"><span aria-hidden="true">→</span><small>下一件</small></button>
         <button type="button" :class="{ 'is-active': viewMode === 'near' }" aria-label="进入当前展品近景" title="进入当前展品近景" @click="approach"><span aria-hidden="true">↑</span><small>近景</small></button>
-        <button type="button" :class="{ 'is-active': viewMode === 'group' }" aria-label="退回当前展厅中景" title="退回当前展厅中景" @click="returnToGroup"><span aria-hidden="true">↓</span><small>中景</small></button>
+        <button type="button" :class="{ 'is-active': viewMode === 'group' }" aria-label="回到当前展厅中景" title="回到当前展厅中景" @click="returnToGroup"><span aria-hidden="true">↓</span><small>回展厅</small></button>
         <button type="button" aria-label="移步到下一面墙" title="移步到下一面墙" @click="moveToNextWall"><span aria-hidden="true">→</span><small>移步</small></button>
       </div>
     </div>

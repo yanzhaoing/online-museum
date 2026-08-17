@@ -124,6 +124,10 @@ async function main() {
   console.log("中景上一件状态:", groupTitleBefore, "=>", groupMoveState);
   if (!groupMoveState.remainsMedium || groupMoveState.hasNearView) throw new Error("中景上一件错误切换到近景");
 
+  const navigationLabels = await evaluate(cdp, `([...document.querySelectorAll(".photo-route-navigation button")].map(button => button.textContent.trim()))`);
+  console.log("底部操作按钮:", navigationLabels);
+  if (!navigationLabels.some(label => label.includes("回展厅"))) throw new Error("缺少明确的回展厅操作按钮");
+
   // 第一展厅第二单元：《杨无恙诗序》必须有真实近景与对应解说
   await evaluate(cdp, `[...document.querySelectorAll(".photo-route-unit-rail button")].find(b => b.textContent.includes("文人墨迹"))?.click(); "ok"`);
   await delay(500);
